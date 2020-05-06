@@ -10,5 +10,5 @@ require (
 	golang.org/x/lint v0.0.0-20200302205851-738671d3881b
 	golang.org/x/net v0.0.0-20200301022130-244492dfa37a
 	golang.org/x/tools v0.0.0-20200306191617-51e69f71924f
-	google.golang.org/grpc v1.27.1
+	google.golang.org/grpc v1.29.1
 )
