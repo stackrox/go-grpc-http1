@@ -19,14 +19,27 @@ import (
 	"net/http"
 
 	"github.com/golang/glog"
-
 	"golang.stackrox.io/grpc-http1/internal/grpcweb"
 	"golang.stackrox.io/grpc-http1/internal/sliceutils"
 	"golang.stackrox.io/grpc-http1/internal/stringutils"
 	"google.golang.org/grpc"
+	"nhooyr.io/websocket"
 )
 
-func handleGRPC(w http.ResponseWriter, req *http.Request, validPaths map[string]struct{}, grpcSrv *grpc.Server) {
+// handleGRPCWS handles gRPC requests via WebSockets.
+func handleGRPCWS(w http.ResponseWriter, req *http.Request, grpcSrv *grpc.Server) {
+	// TODO: Accept the websocket on-demand.
+	// For now, this is fine.
+	conn, err := websocket.Accept(w, req, nil)
+	if err != nil {
+		http.Error(w, fmt.Sprintf("accepting websocket connection: %v", err), http.StatusInternalServerError)
+		return
+	}
+
+	_ = conn.Close(websocket.StatusNormalClosure, "")
+}
+
+func handleGRPCWeb(w http.ResponseWriter, req *http.Request, validPaths map[string]struct{}, grpcSrv *grpc.Server) {
 	// Check for HTTP/2.
 	if req.ProtoMajor != 2 {
 		if _, ok := validPaths[req.URL.Path]; !ok {
@@ -50,7 +63,7 @@ func handleGRPC(w http.ResponseWriter, req *http.Request, validPaths map[string]
 		return
 	}
 
-	// Tell the server we would accept trailers (the gRPC server currently (v1.21.0) doesn't check for this but it
+	// Tell the server we would accept trailers (the gRPC server currently (v1.29.1) doesn't check for this but it
 	// really should, as the purpose of the TE header according to the gRPC spec is to detect incompatible proxies).
 	req.Header.Set("TE", "trailers")
 
@@ -63,10 +76,10 @@ func handleGRPC(w http.ResponseWriter, req *http.Request, validPaths map[string]
 }
 
 // CreateDowngradingHandler takes a gRPC server and a plain HTTP handler, and returns an HTTP handler that has the
-// capability of handling requests that may require downgrading the response to gRPC web.
+// capability of handling requests that may require downgrading the response to gRPC-Web or gRPC-WebSocket.
 func CreateDowngradingHandler(grpcSrv *grpc.Server, httpHandler http.Handler) http.Handler {
-	// Only allow paths corresponding to gRPC methods that do not use client streaming.
-	validPaths := make(map[string]struct{})
+	// Only allow paths corresponding to gRPC methods that do not use client streaming for gRPC-Web.
+	validGRPCWebPaths := make(map[string]struct{})
 
 	for svcName, svcInfo := range grpcSrv.GetServiceInfo() {
 		for _, methodInfo := range svcInfo.Methods {
@@ -76,16 +89,27 @@ func CreateDowngradingHandler(grpcSrv *grpc.Server, httpHandler http.Handler) ht
 			}
 
 			fullMethodName := fmt.Sprintf("/%s/%s", svcName, methodInfo.Name)
-			validPaths[fullMethodName] = struct{}{}
+			validGRPCWebPaths[fullMethodName] = struct{}{}
 		}
 	}
 
 	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+		if isWebSocketUpgrade(req.Header) {
+			handleGRPCWS(w, req, grpcSrv)
+			return
+		}
+
 		if contentType, _ := stringutils.Split2(req.Header.Get("Content-Type"), "+"); contentType != "application/grpc" {
 			httpHandler.ServeHTTP(w, req)
 			return
 		}
 
-		handleGRPC(w, req, validPaths, grpcSrv)
+		handleGRPCWeb(w, req, validGRPCWebPaths, grpcSrv)
 	})
+}
+
+func isWebSocketUpgrade(header http.Header) bool {
+	return header.Get("Connection") == "Upgrade" &&
+		header.Get("Upgrade") == "websocket" &&
+		header.Get("Sec-Websocket-Protocol") == "grpc-ws"
 }

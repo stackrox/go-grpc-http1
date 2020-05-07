@@ -11,4 +11,5 @@ require (
 	golang.org/x/net v0.0.0-20200301022130-244492dfa37a
 	golang.org/x/tools v0.0.0-20200306191617-51e69f71924f
 	google.golang.org/grpc v1.29.1
+	nhooyr.io/websocket v1.8.5
 )

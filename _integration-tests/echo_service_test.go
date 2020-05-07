@@ -138,6 +138,96 @@ func TestWithEchoService(t *testing.T) {
 	}
 }
 
+func TestWSWithEchoService(t *testing.T) {
+	testCfg := newTestConfig(t)
+	defer testCfg.TearDown()
+
+	cases := []testCase{
+		{
+			targetID:             "raw-grpc",
+			useProxy:             false,
+			useWebSocket:         true,
+			expectUnaryOK:        true,
+			expectServerStreamOK: true,
+			expectClientStreamOK: true,
+			expectBidiStreamOK:   true,
+		},
+		{
+			targetID:                "raw-grpc",
+			behindHTTP1ReverseProxy: true,
+			useProxy:                false,
+			useWebSocket:            true,
+			expectUnaryOK:           false,
+			expectServerStreamOK:    false,
+			expectClientStreamOK:    false,
+			expectBidiStreamOK:      false,
+		},
+		{
+			targetID:             "raw-grpc",
+			useProxy:             true,
+			useWebSocket:         true,
+			expectUnaryOK:        true,
+			expectServerStreamOK: true,
+			expectClientStreamOK: true,
+			expectBidiStreamOK:   true,
+		},
+		{
+			targetID:                "raw-grpc",
+			behindHTTP1ReverseProxy: true,
+			useProxy:                true,
+			useWebSocket:            true,
+			expectUnaryOK:           false,
+			expectServerStreamOK:    false,
+			expectClientStreamOK:    false,
+			expectBidiStreamOK:      false,
+		},
+		{
+			targetID:             "downgrading-grpc",
+			useProxy:             false,
+			useWebSocket:         true,
+			expectUnaryOK:        true,
+			expectServerStreamOK: true,
+			expectClientStreamOK: true,
+			expectBidiStreamOK:   true,
+		},
+		{
+			targetID:                "downgrading-grpc",
+			behindHTTP1ReverseProxy: true,
+			useProxy:                false,
+			useWebSocket:            true,
+			expectUnaryOK:           false,
+			expectServerStreamOK:    false,
+			expectClientStreamOK:    false,
+			expectBidiStreamOK:      false,
+		},
+		{
+			targetID:             "downgrading-grpc",
+			useProxy:             true,
+			useWebSocket:         true,
+			expectUnaryOK:        true,
+			expectServerStreamOK: true,
+			expectClientStreamOK: true,
+			expectBidiStreamOK:   true,
+		},
+		{
+			targetID:                "downgrading-grpc",
+			behindHTTP1ReverseProxy: true,
+			useProxy:                true,
+			useWebSocket:            true,
+			expectUnaryOK:           true,
+			expectServerStreamOK:    true,
+			expectClientStreamOK:    false,
+			expectBidiStreamOK:      false,
+		},
+	}
+
+	for _, c := range cases {
+		t.Run(c.Name(), func(t *testing.T) {
+			c.Run(t, testCfg)
+		})
+	}
+}
+
 func newHTTP1Proxy(target string) *http.Server {
 	transport := &http.Transport{
 		ForceAttemptHTTP2: false,
@@ -162,6 +252,7 @@ type testCase struct {
 	targetID                string
 	behindHTTP1ReverseProxy bool
 	useProxy                bool
+	useWebSocket            bool
 
 	expectUnaryOK        bool
 	expectClientStreamOK bool
@@ -172,6 +263,10 @@ type testCase struct {
 func (c *testCase) Name() string {
 	var sb strings.Builder
 	sb.WriteString(c.targetID)
+
+	if c.useWebSocket {
+		sb.WriteString("-ws")
+	}
 
 	if c.behindHTTP1ReverseProxy {
 		sb.WriteString("-behind-http1-revproxy")
@@ -218,7 +313,11 @@ func (c *testCase) Run(t *testing.T, cfg *testConfig) {
 		if !c.behindHTTP1ReverseProxy {
 			opts = append(opts, client.ForceHTTP2())
 		}
-		cc, err = client.ConnectViaProxy(ctx, targetAddr, nil, opts...)
+		if c.useWebSocket {
+			cc, err = client.ConnectViaWSProxy(ctx, targetAddr, nil, opts...)
+		} else {
+			cc, err = client.ConnectViaProxy(ctx, targetAddr, nil, opts...)
+		}
 	} else {
 		cc, err = grpc.DialContext(ctx, targetAddr, grpc.WithInsecure())
 	}
