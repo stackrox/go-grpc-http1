@@ -17,6 +17,7 @@ package server
 import (
 	"fmt"
 	"net/http"
+	"strings"
 
 	"github.com/golang/glog"
 	"golang.stackrox.io/grpc-http1/internal/grpcweb"
@@ -28,15 +29,41 @@ import (
 
 // handleGRPCWS handles gRPC requests via WebSockets.
 func handleGRPCWS(w http.ResponseWriter, req *http.Request, grpcSrv *grpc.Server) {
-	// TODO: Accept the websocket on-demand.
-	// For now, this is fine.
+	// TODO: Accept the websocket on-demand. For now, this is fine.
 	conn, err := websocket.Accept(w, req, nil)
 	if err != nil {
 		http.Error(w, fmt.Sprintf("accepting websocket connection: %v", err), http.StatusInternalServerError)
 		return
 	}
 
-	_ = conn.Close(websocket.StatusNormalClosure, "")
+	ctx := req.Context()
+
+	grpcReq := req.Clone(ctx)
+	grpcReq.ProtoMajor, grpcReq.ProtoMinor, grpcReq.Proto = 2, 0, "HTTP/2.0"
+	grpcReq.Method = http.MethodPost // gRPC requests are always POST requests.
+
+	// Filter out all WebSocket-specific headers.
+	hdr := grpcReq.Header
+	hdr.Del("Connection")
+	hdr.Del("Upgrade")
+	for k := range hdr {
+		if strings.HasPrefix(k, "Sec-Websocket-") {
+			delete(hdr, k)
+		}
+	}
+	// Remove content-length header info.
+	hdr.Del("Content-Length")
+	grpcReq.ContentLength = -1
+
+	// Assume each WebSocket message is a valid gRPC data frame.
+	grpcReq.Body = newWebSocketReader(ctx, conn)
+
+	grpcResponseWriter, _ := newResponseWriter()
+	grpcSrv.ServeHTTP(grpcResponseWriter, grpcReq)
+	if err := grpcResponseWriter.Close(); err != nil {
+		// TODO: Remove once done debugging.
+		glog.Errorln(err)
+	}
 }
 
 func handleGRPCWeb(w http.ResponseWriter, req *http.Request, validPaths map[string]struct{}, grpcSrv *grpc.Server) {

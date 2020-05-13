@@ -1,16 +1,17 @@
 package client
 
 import (
+	"bytes"
 	"context"
 	"crypto/tls"
 	"io"
 	"net/http"
 	"strings"
-	"sync"
 
 	"github.com/golang/glog"
 	"github.com/pkg/errors"
 	"golang.stackrox.io/grpc-http1/internal/grpcproto"
+	"golang.stackrox.io/grpc-http1/internal/ioutils"
 	"golang.stackrox.io/grpc-http1/internal/pipeconn"
 	"google.golang.org/grpc"
 	"nhooyr.io/websocket"
@@ -26,42 +27,51 @@ type http2WebSocketProxy struct {
 	httpClient *http.Client
 }
 
-// write writes the contents of the reqBody along the WebSocket connection.
-func (h *http2WebSocketProxy) write(ctx context.Context, conn *websocket.Conn, reqBody io.ReadCloser) {
-	// Write each WebSocket message as a gRPC data frame.
-	// Each data frame is length-prefixed message, where the prefix is 5 bytes.
-	// gRPC request format is specified here: https://github.com/grpc/grpc/blob/master/doc/PROTOCOL-HTTP2.md
-	var gRPCMsgHdr [grpcproto.MessageHeaderLength]byte
+// Write the contents of the reqBody along the WebSocket connection.
+// This is done by sending each WebSocket message as a gRPC data frame.
+// Each data frame is length-prefixed message, where the prefix is 5 bytes.
+// gRPC request format is specified here: https://github.com/grpc/grpc/blob/master/doc/PROTOCOL-HTTP2.md
+func (h *http2WebSocketProxy) write(ctx context.Context, conn *websocket.Conn, reqBody io.ReadCloser) error {
+	var msg bytes.Buffer
 	for {
-		_, err := io.ReadFull(reqBody, gRPCMsgHdr[:])
-		if err != nil {
+		// Reset the message buffer to start with a clean slate.
+		msg.Reset()
+		// Read request header into the msg buffer.
+		if _, err := ioutils.CopyNFull(&msg, reqBody, grpcproto.MessageHeaderLength); err != nil {
 			if err == io.EOF {
-				// EOF is ok here, as it means it's the end of the gRPC message.
-				err = nil
-			} else {
-				glog.Errorf("Malformed gRPC message: %v", err)
+				// EOF here means the client has no more messages to send.
+				// Send the server an EOS message.
+				// TODO: Remove this log. Keeping for now for debugging purposes.
+				glog.Errorln("Sending EOS")
+				return conn.Write(ctx, websocket.MessageBinary, grpcproto.EndStreamHeader)
 			}
-			break
+
+			glog.Errorf("Malformed gRPC message when reading header: %v", err)
+			return err
 		}
 
-		_, length := grpcproto.ParseMessageHeader(gRPCMsgHdr)
-		msg := make([]byte, grpcproto.MessageHeaderLength+length)
-		n, err := io.ReadFull(reqBody, msg[grpcproto.MessageHeaderLength:])
+		_, length, err := grpcproto.ParseMessageHeader(msg.Bytes())
 		if err != nil {
-			if err == io.EOF || err == io.ErrUnexpectedEOF {
+			return err
+		}
+
+		// Read the rest of the message into the msg buffer.
+		if n, err := io.CopyN(&msg, reqBody, int64(length)); err != nil {
+			if err == io.EOF {
+				err = io.ErrUnexpectedEOF
 				glog.Errorf("Malformed gRPC message: fewer than the announced %d bytes in payload: %d", length, n)
 			} else {
 				glog.Errorf("Unable to read gRPC request message: %v", err)
 			}
-			break
+			return err
 		}
-		// Message to send out should be the entire gRPC data frame, including headers.
-		copy(msg, gRPCMsgHdr[:])
 
 		// TODO: Remove this log. Keeping it for debugging purposes, for now.
-		glog.Errorln(string(msg[grpcproto.MessageHeaderLength+2:]))
+		glog.Errorln(msg.String())
 
-		_ = conn.Write(ctx, websocket.MessageBinary, msg)
+		if err := conn.Write(ctx, websocket.MessageBinary, msg.Bytes()); err != nil {
+			return err
+		}
 	}
 }
 
@@ -94,17 +104,22 @@ func (h *http2WebSocketProxy) ServeHTTP(w http.ResponseWriter, req *http.Request
 		return
 	}
 
-	var wg sync.WaitGroup
+	// Channel to capture the output of (*http2WebSocketProxy).write.
+	errC := make(chan error)
 
-	wg.Add(1)
 	go func() {
-		h.write(ctx, conn, req.Body)
-		wg.Done()
+		errC <- h.write(ctx, conn, req.Body)
 	}()
 
-	wg.Wait()
+	select {
+	case err := <-errC:
+		if err != nil {
+			writeError(w, err)
+			_ = conn.Close(websocket.StatusInternalError, err.Error())
+			return
+		}
+	}
 
-	// TODO: Write back gRPC headers upon failure.
 	_ = conn.Close(websocket.StatusNormalClosure, "")
 }
 
