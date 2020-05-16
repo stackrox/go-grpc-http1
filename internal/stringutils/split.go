@@ -24,5 +24,5 @@ func Split2(str string, sep string) (string, string) {
 	if splitIdx == -1 {
 		return str, ""
 	}
-	return str[:splitIdx], str[splitIdx+1:]
+	return str[:splitIdx], str[splitIdx+len(sep):]
 }

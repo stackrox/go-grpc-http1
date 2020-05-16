@@ -1,17 +1,20 @@
 package client
 
 import (
+	"bufio"
 	"bytes"
 	"context"
 	"crypto/tls"
 	"io"
 	"net/http"
+	"net/textproto"
 	"strings"
+	"sync"
 
 	"github.com/golang/glog"
 	"github.com/pkg/errors"
 	"golang.stackrox.io/grpc-http1/internal/grpcproto"
-	"golang.stackrox.io/grpc-http1/internal/ioutils"
+	"golang.stackrox.io/grpc-http1/internal/grpcwebsocket"
 	"golang.stackrox.io/grpc-http1/internal/pipeconn"
 	"google.golang.org/grpc"
 	"nhooyr.io/websocket"
@@ -27,52 +30,106 @@ type http2WebSocketProxy struct {
 	httpClient *http.Client
 }
 
-// Write the contents of the reqBody along the WebSocket connection.
-// This is done by sending each WebSocket message as a gRPC data frame.
-// Each data frame is length-prefixed message, where the prefix is 5 bytes.
-// gRPC request format is specified here: https://github.com/grpc/grpc/blob/master/doc/PROTOCOL-HTTP2.md
-func (h *http2WebSocketProxy) write(ctx context.Context, conn *websocket.Conn, reqBody io.ReadCloser) error {
-	var msg bytes.Buffer
+// readHeader reads gRPC response headers. Trailers-Only messages are treated as response headers.
+func (h *http2WebSocketProxy) readHeader(ctx context.Context, conn *websocket.Conn, w http.ResponseWriter) error {
+	mt, msg, err := conn.Read(ctx)
+	if err != nil {
+		return err
+	}
+	if mt != websocket.MessageBinary {
+		return errors.Errorf("incorrect message type; expected MessageBinary but got %v", mt)
+	}
+
+	if err := grpcproto.ValidateGRPCFrame(msg); err != nil {
+		return err
+	}
+	if !grpcproto.IsMetadataFrame(msg) {
+		return errors.New("did not receive metadata message")
+	}
+
+	return setHeader(w, msg[grpcproto.MessageHeaderLength:], false)
+}
+
+// Read gRPC response messages from the server and write them back to the gRPC client.
+func (h *http2WebSocketProxy) readFromServer(ctx context.Context, conn *websocket.Conn, w http.ResponseWriter) error {
+	// Handle normal and trailers-only messages.
+	// Treat trailers-only the same as a headers-only response.
+	if err := h.readHeader(ctx, conn, w); err != nil {
+		return errors.Wrap(err, "reading response header")
+	}
+	w.WriteHeader(http.StatusOK)
+
+	// "State" variables.
+	// EOF is ok if we receive no data (so headers-only or trailers-only response)
+	// or after receiving trailers.
+	// Data is ok after receiving the headers (above), but not after receiving trailers.
+	eofOk, dataOk := true, true
 	for {
-		// Reset the message buffer to start with a clean slate.
-		msg.Reset()
-		// Read request header into the msg buffer.
-		if _, err := ioutils.CopyNFull(&msg, reqBody, grpcproto.MessageHeaderLength); err != nil {
-			if err == io.EOF {
-				// EOF here means the client has no more messages to send.
-				// Send the server an EOS message.
-				// TODO: Remove this log. Keeping for now for debugging purposes.
-				glog.Errorln("Sending EOS")
-				return conn.Write(ctx, websocket.MessageBinary, grpcproto.EndStreamHeader)
-			}
-
-			glog.Errorf("Malformed gRPC message when reading header: %v", err)
-			return err
-		}
-
-		_, length, err := grpcproto.ParseMessageHeader(msg.Bytes())
+		mt, msg, err := conn.Read(ctx)
 		if err != nil {
-			return err
-		}
-
-		// Read the rest of the message into the msg buffer.
-		if n, err := io.CopyN(&msg, reqBody, int64(length)); err != nil {
-			if err == io.EOF {
-				err = io.ErrUnexpectedEOF
-				glog.Errorf("Malformed gRPC message: fewer than the announced %d bytes in payload: %d", length, n)
-			} else {
-				glog.Errorf("Unable to read gRPC request message: %v", err)
+			if err == io.EOF && eofOk {
+				return nil
 			}
-			return err
+
+			return errors.Wrap(err, "reading response body")
+		}
+		if !dataOk {
+			// Did not read io.EOF after already receiving trailers.
+			return errors.New("received message after receiving trailers")
+		}
+		if mt != websocket.MessageBinary {
+			return errors.Errorf("incorrect message type; expected MessageBinary but got %v", mt)
 		}
 
-		// TODO: Remove this log. Keeping it for debugging purposes, for now.
-		glog.Errorln(msg.String())
-
-		if err := conn.Write(ctx, websocket.MessageBinary, msg.Bytes()); err != nil {
+		if err := grpcproto.ValidateGRPCFrame(msg); err != nil {
 			return err
+		}
+		if grpcproto.IsDataFrame(msg) {
+			eofOk = false
+			if _, err := w.Write(msg); err != nil {
+				return err
+			}
+		} else if grpcproto.IsMetadataFrame(msg) {
+			if grpcproto.IsCompressed(msg) {
+				return errors.New("compression flag is set; compressed metadata is not supported")
+			}
+			eofOk = true
+			dataOk = false
+			if err := setHeader(w, msg[grpcproto.MessageHeaderLength:], true); err != nil {
+				return err
+			}
+		} else {
+			return errors.New("received an invalid message: expected either data or trailers")
 		}
 	}
+}
+
+// Set the http.Header. If isTrailers is true, http.TrailerPrefix is prepended to each key.
+func setHeader(w http.ResponseWriter, msg []byte, isTrailers bool) error {
+	hdr, err := textproto.NewReader(
+		bufio.NewReader(
+			io.MultiReader(
+				bytes.NewReader(msg),
+				strings.NewReader("\r\n"),
+			),
+		),
+	).ReadMIMEHeader()
+	if err != nil {
+		return err
+	}
+
+	wHdr := w.Header()
+	for k, vs := range hdr {
+		if isTrailers {
+			// Any trailers have had the prefix stripped off, so we replace it here.
+			k = http.TrailerPrefix + k
+		}
+		for _, v := range vs {
+			wHdr.Add(k, v)
+		}
+	}
+
+	return nil
 }
 
 // ServeHTTP handles gRPC-WebSocket traffic.
@@ -104,22 +161,28 @@ func (h *http2WebSocketProxy) ServeHTTP(w http.ResponseWriter, req *http.Request
 		return
 	}
 
-	// Channel to capture the output of (*http2WebSocketProxy).write.
-	errC := make(chan error)
+	var wg sync.WaitGroup
 
+	wg.Add(1)
 	go func() {
-		errC <- h.write(ctx, conn, req.Body)
-	}()
-
-	select {
-	case err := <-errC:
-		if err != nil {
-			writeError(w, err)
+		defer wg.Done()
+		if err := grpcwebsocket.Write(ctx, conn, req.Body); err != nil {
 			_ = conn.Close(websocket.StatusInternalError, err.Error())
 			return
 		}
+		// Signal the server there are no more messages in the stream.
+		if err := conn.Write(ctx, websocket.MessageBinary, grpcproto.EndStreamHeader); err != nil {
+			_ = conn.Close(websocket.StatusInternalError, err.Error())
+		}
+	}()
+
+	if err := h.readFromServer(ctx, conn, w); err != nil {
+		_ = conn.Close(websocket.StatusInternalError, err.Error())
 	}
 
+	wg.Wait()
+	// It's ok to potentially close the connection multiple times.
+	// Only the first time matters.
 	_ = conn.Close(websocket.StatusNormalClosure, "")
 }
 

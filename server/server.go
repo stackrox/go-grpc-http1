@@ -18,9 +18,11 @@ import (
 	"fmt"
 	"net/http"
 	"strings"
+	"sync"
 
 	"github.com/golang/glog"
 	"golang.stackrox.io/grpc-http1/internal/grpcweb"
+	"golang.stackrox.io/grpc-http1/internal/grpcwebsocket"
 	"golang.stackrox.io/grpc-http1/internal/sliceutils"
 	"golang.stackrox.io/grpc-http1/internal/stringutils"
 	"google.golang.org/grpc"
@@ -30,6 +32,7 @@ import (
 // handleGRPCWS handles gRPC requests via WebSockets.
 func handleGRPCWS(w http.ResponseWriter, req *http.Request, grpcSrv *grpc.Server) {
 	// TODO: Accept the websocket on-demand. For now, this is fine.
+	// Accept a WebSocket connection.
 	conn, err := websocket.Accept(w, req, nil)
 	if err != nil {
 		http.Error(w, fmt.Sprintf("accepting websocket connection: %v", err), http.StatusInternalServerError)
@@ -55,15 +58,30 @@ func handleGRPCWS(w http.ResponseWriter, req *http.Request, grpcSrv *grpc.Server
 	hdr.Del("Content-Length")
 	grpcReq.ContentLength = -1
 
-	// Assume each WebSocket message is a valid gRPC data frame.
+	// Set the body to a custom WebSocket reader.
 	grpcReq.Body = newWebSocketReader(ctx, conn)
 
-	grpcResponseWriter, _ := newResponseWriter()
+	// Use a custom WebSocket http.ResponseWriter to write messages back to the client.
+	grpcResponseWriter, respReader := newWebSocketResponseWriter()
+
+	var wg sync.WaitGroup
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		if err := grpcwebsocket.Write(ctx, conn, respReader); err != nil {
+			_ = conn.Close(websocket.StatusInternalError, err.Error())
+		}
+	}()
+
 	grpcSrv.ServeHTTP(grpcResponseWriter, grpcReq)
 	if err := grpcResponseWriter.Close(); err != nil {
-		// TODO: Remove once done debugging.
-		glog.Errorln(err)
+		_ = conn.Close(websocket.StatusInternalError, err.Error())
 	}
+
+	wg.Wait()
+	// It's ok to potentially close the connection multiple times.
+	// Only the first time matters.
+	_ = conn.Close(websocket.StatusNormalClosure, "")
 }
 
 func handleGRPCWeb(w http.ResponseWriter, req *http.Request, validPaths map[string]struct{}, grpcSrv *grpc.Server) {
@@ -127,6 +145,7 @@ func CreateDowngradingHandler(grpcSrv *grpc.Server, httpHandler http.Handler) ht
 		}
 
 		if contentType, _ := stringutils.Split2(req.Header.Get("Content-Type"), "+"); contentType != "application/grpc" {
+			// Non-gRPC request to the same port.
 			httpHandler.ServeHTTP(w, req)
 			return
 		}

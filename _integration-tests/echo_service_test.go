@@ -166,10 +166,10 @@ func TestWSWithEchoService(t *testing.T) {
 			targetID:             "raw-grpc",
 			useProxy:             true,
 			useWebSocket:         true,
-			expectUnaryOK:        true,
-			expectServerStreamOK: true,
-			expectClientStreamOK: true,
-			expectBidiStreamOK:   true,
+			expectUnaryOK:        false,
+			expectServerStreamOK: false,
+			expectClientStreamOK: false,
+			expectBidiStreamOK:   false,
 		},
 		{
 			targetID:                "raw-grpc",
@@ -216,8 +216,8 @@ func TestWSWithEchoService(t *testing.T) {
 			useWebSocket:            true,
 			expectUnaryOK:           true,
 			expectServerStreamOK:    true,
-			expectClientStreamOK:    false,
-			expectBidiStreamOK:      false,
+			expectClientStreamOK:    true,
+			expectBidiStreamOK:      true,
 		},
 	}
 

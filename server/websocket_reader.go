@@ -4,13 +4,12 @@ import (
 	"context"
 	"io"
 
-	"github.com/golang/glog"
 	"github.com/pkg/errors"
 	"golang.stackrox.io/grpc-http1/internal/grpcproto"
 	"nhooyr.io/websocket"
 )
 
-// wsReader is an io.ReadCloser that wraps a WebSocket's io.Reader.
+// wsReader is an io.ReadCloser that wraps around a WebSocket's io.Reader.
 type wsReader struct {
 	ctx        context.Context
 	conn       *websocket.Conn
@@ -32,8 +31,6 @@ func newWebSocketReader(ctx context.Context, conn *websocket.Conn) io.ReadCloser
 // Read reads from the WebSocket connection.
 // Read assumes each WebSocket message is a gRPC message or metadata frame.
 func (r *wsReader) Read(p []byte) (int, error) {
-	// TODO: Remove log. Only here for debugging purposes.
-	glog.Errorf("Read Called with buffer of length %d", len(p))
 	var n int
 	// Errors are "sticky", so if we've errored before, don't bother reading.
 	if r.err == nil {
@@ -49,17 +46,20 @@ func (r *wsReader) doRead(p []byte) (int, error) {
 			return 0, err
 		}
 		if mt != websocket.MessageBinary {
-			return 0, errors.Errorf("incorrect message type; expected MessageBinary but got %s", mt)
+			return 0, errors.Errorf("incorrect message type; expected MessageBinary but got %v", mt)
 		}
 
-		// TODO: remove log. Here for debugging for now.
-		glog.Errorln(string(msg))
+		// Expect either an EOS message from the client or a valid data frame.
+		// Headers are not expected to be handled here.
 
+		if err := grpcproto.ValidateGRPCFrame(msg); err != nil {
+			return 0, err
+		}
 		if grpcproto.IsEndOfStream(msg) {
 			return 0, io.EOF
 		}
-		if !grpcproto.IsValidMessageFrame(msg) {
-			return 0, errors.Errorf("message is an invalid gRPC message frame")
+		if !grpcproto.IsDataFrame(msg) {
+			return 0, errors.Errorf("message is not a gRPC data frame")
 		}
 
 		r.currOffset = 0

@@ -13,6 +13,12 @@ const (
 	// We differentiate between a gRPC message and metadata by the MSB.
 	// 1 means it is metadata.
 	metadataMask = 1 << 7
+
+	// Determines if a gRPC message is compressed.
+	compressionMask = 1
+
+	// MetadataFlags is flags with the MSB set to 1 to indicate a metadata gRPC message.
+	MetadataFlags MessageFlags = metadataMask
 )
 
 var (
@@ -32,5 +38,13 @@ func ParseMessageHeader(header []byte) (MessageFlags, uint32, error) {
 	if len(header) != MessageHeaderLength {
 		return 0, 0, errors.Errorf("gRPC message header must be %d bytes, but got %d", MessageHeaderLength, len(header))
 	}
-	return MessageFlags(header[0]), binary.BigEndian.Uint32(header[1:MessageHeaderLength]), nil
+	return MessageFlags(header[0]), binary.BigEndian.Uint32(header[1:]), nil
+}
+
+// MakeMessageHeader creates a gRPC message frame header based on the given flags and message length.
+func MakeMessageHeader(flags MessageFlags, length uint32) []byte {
+	hdr := make([]byte, MessageHeaderLength)
+	hdr[0] = uint8(flags)
+	binary.BigEndian.PutUint32(hdr[1:], length)
+	return hdr
 }
