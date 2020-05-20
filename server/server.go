@@ -23,6 +23,7 @@ import (
 	"github.com/golang/glog"
 	"golang.stackrox.io/grpc-http1/internal/grpcweb"
 	"golang.stackrox.io/grpc-http1/internal/grpcwebsocket"
+	"golang.stackrox.io/grpc-http1/internal/size"
 	"golang.stackrox.io/grpc-http1/internal/sliceutils"
 	"golang.stackrox.io/grpc-http1/internal/stringutils"
 	"google.golang.org/grpc"
@@ -38,6 +39,7 @@ func handleGRPCWS(w http.ResponseWriter, req *http.Request, grpcSrv *grpc.Server
 		http.Error(w, fmt.Sprintf("accepting websocket connection: %v", err), http.StatusInternalServerError)
 		return
 	}
+	conn.SetReadLimit(64 * size.MB)
 
 	ctx := req.Context()
 

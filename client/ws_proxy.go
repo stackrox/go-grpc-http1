@@ -16,6 +16,7 @@ import (
 	"golang.stackrox.io/grpc-http1/internal/grpcproto"
 	"golang.stackrox.io/grpc-http1/internal/grpcwebsocket"
 	"golang.stackrox.io/grpc-http1/internal/pipeconn"
+	"golang.stackrox.io/grpc-http1/internal/size"
 	"google.golang.org/grpc"
 	"nhooyr.io/websocket"
 )
@@ -160,6 +161,7 @@ func (h *http2WebSocketProxy) ServeHTTP(w http.ResponseWriter, req *http.Request
 		writeError(w, errors.Wrapf(err, "connecting to gRPC server %q", url.String()))
 		return
 	}
+	conn.SetReadLimit(64 * size.MB)
 
 	var wg sync.WaitGroup
 
