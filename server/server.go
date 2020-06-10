@@ -30,6 +30,10 @@ import (
 	"nhooyr.io/websocket"
 )
 
+const (
+	name = "server"
+)
+
 // handleGRPCWS handles gRPC requests via WebSockets.
 func handleGRPCWS(w http.ResponseWriter, req *http.Request, grpcSrv *grpc.Server) {
 	// TODO: Accept the websocket on-demand. For now, this is fine.
@@ -70,7 +74,7 @@ func handleGRPCWS(w http.ResponseWriter, req *http.Request, grpcSrv *grpc.Server
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		if err := grpcwebsocket.Write(ctx, conn, respReader); err != nil {
+		if err := grpcwebsocket.Write(ctx, conn, respReader, name); err != nil {
 			_ = conn.Close(websocket.StatusInternalError, err.Error())
 		}
 	}()
@@ -123,7 +127,7 @@ func handleGRPCWeb(w http.ResponseWriter, req *http.Request, validPaths map[stri
 }
 
 // CreateDowngradingHandler takes a gRPC server and a plain HTTP handler, and returns an HTTP handler that has the
-// capability of handling requests that may require downgrading the response to gRPC-Web or gRPC-WebSocket.
+// capability of handling HTTP requests and gRPC requests that may require downgrading the response to gRPC-Web or gRPC-WebSocket.
 func CreateDowngradingHandler(grpcSrv *grpc.Server, httpHandler http.Handler) http.Handler {
 	// Only allow paths corresponding to gRPC methods that do not use client streaming for gRPC-Web.
 	validGRPCWebPaths := make(map[string]struct{})

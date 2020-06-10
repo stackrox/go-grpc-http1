@@ -15,7 +15,7 @@ import (
 // This is done by sending each WebSocket message as a gRPC message frame.
 // Each message frame is length-prefixed message, where the prefix is 5 bytes.
 // gRPC request format is specified here: https://github.com/grpc/grpc/blob/master/doc/PROTOCOL-HTTP2.md.
-func Write(ctx context.Context, conn *websocket.Conn, r io.Reader) error {
+func Write(ctx context.Context, conn *websocket.Conn, r io.Reader, sender string) error {
 	var msg bytes.Buffer
 	for {
 		// Reset the message buffer to start with a clean slate.
@@ -27,7 +27,7 @@ func Write(ctx context.Context, conn *websocket.Conn, r io.Reader) error {
 				return nil
 			}
 
-			glog.Errorf("Malformed gRPC message when reading header: %v", err)
+			glog.V(2).Infof("Malformed gRPC message when reading header sent from %s: %v", sender, err)
 			return err
 		}
 
@@ -40,16 +40,16 @@ func Write(ctx context.Context, conn *websocket.Conn, r io.Reader) error {
 		if n, err := io.CopyN(&msg, r, int64(length)); err != nil {
 			if err == io.EOF || err == io.ErrUnexpectedEOF {
 				err = io.ErrUnexpectedEOF
-				glog.Errorf("Malformed gRPC message: fewer than the announced %d bytes in payload: %d", length, n)
+				glog.V(2).Infof("Malformed gRPC message: fewer than the announced %d bytes in payload %s wants to send: %d", length, sender, n)
 			} else {
-				glog.Errorf("Unable to read gRPC message: %v", err)
+				glog.V(2).Infof("Unable to read gRPC message %s wants to send: %v", sender, err)
 			}
 			return err
 		}
 
 		// Write the entire message frame along the WebSocket connection.
 		if err := conn.Write(ctx, websocket.MessageBinary, msg.Bytes()); err != nil {
-			glog.Errorf("Unable to write gRPC message: %v", err)
+			glog.V(2).Infof("Unable to write gRPC message from %s: %v", sender, err)
 			return err
 		}
 	}

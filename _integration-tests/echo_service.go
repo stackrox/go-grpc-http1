@@ -6,14 +6,19 @@ import (
 	"strings"
 
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/examples/features/proto/echo"
 	"google.golang.org/grpc/metadata"
+	"google.golang.org/grpc/status"
 )
 
 var (
 	_ = echo.EchoServer(echoService{})
 )
 
+// echoService implements an echo server, which also sets headers and trailers.
+// Given the 'ERROR:' keyword in the message or 'error' in the header, the call will trigger an error.
+// This allows for testing for errors during various stages of the response.
 type echoService struct{}
 
 func (echoService) echoHeadersAndTrailers(ctx context.Context) error {
@@ -33,12 +38,20 @@ func (echoService) echoHeadersAndTrailers(ctx context.Context) error {
 		}
 	}
 
+	if errMsg := md.Get("error"); len(errMsg) > 0 {
+		return status.Error(codes.InvalidArgument, errMsg[0])
+	}
+
 	return nil
 }
 
 func (s echoService) UnaryEcho(ctx context.Context, req *echo.EchoRequest) (*echo.EchoResponse, error) {
 	if err := s.echoHeadersAndTrailers(ctx); err != nil {
 		return nil, err
+	}
+
+	if strings.HasPrefix(req.GetMessage(), "ERROR:") {
+		return nil, status.Error(codes.InvalidArgument, req.GetMessage()[6:])
 	}
 
 	return &echo.EchoResponse{
@@ -54,6 +67,15 @@ func (s echoService) ServerStreamingEcho(req *echo.EchoRequest, server echo.Echo
 	lines := strings.Split(req.GetMessage(), "\n")
 
 	for _, line := range lines {
+		if strings.HasPrefix(line, "ERROR:") {
+			return status.Error(codes.InvalidArgument, line[6:])
+		}
+		if line == "HEADERS" {
+			if err := server.SendHeader(metadata.MD{}); err != nil {
+				return err
+			}
+			continue
+		}
 		resp := &echo.EchoResponse{Message: line}
 		if err := server.Send(resp); err != nil {
 			return err
@@ -79,6 +101,16 @@ func (s echoService) ClientStreamingEcho(server echo.Echo_ClientStreamingEchoSer
 			return err
 		}
 
+		if strings.HasPrefix(msg.GetMessage(), "ERROR:") {
+			return status.Error(codes.InvalidArgument, msg.GetMessage()[6:])
+		}
+		if msg.GetMessage() == "HEADERS" {
+			if err := server.SendHeader(metadata.MD{}); err != nil {
+				return err
+			}
+			continue
+		}
+
 		msgs = append(msgs, msg.GetMessage())
 	}
 
@@ -101,6 +133,16 @@ func (s echoService) BidirectionalStreamingEcho(server echo.Echo_BidirectionalSt
 		}
 		if err != nil {
 			return err
+		}
+
+		if strings.HasPrefix(msg.GetMessage(), "ERROR:") {
+			return status.Error(codes.InvalidArgument, msg.GetMessage()[6:])
+		}
+		if msg.GetMessage() == "HEADERS" {
+			if err := server.SendHeader(metadata.MD{}); err != nil {
+				return err
+			}
+			continue
 		}
 
 		resp := &echo.EchoResponse{

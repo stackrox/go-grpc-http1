@@ -18,8 +18,10 @@ import (
 	"golang.stackrox.io/grpc-http1/client"
 	"golang.stackrox.io/grpc-http1/server"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/examples/features/proto/echo"
 	"google.golang.org/grpc/metadata"
+	"google.golang.org/grpc/status"
 )
 
 func listenLocal(t *testing.T) net.Listener {
@@ -323,6 +325,8 @@ func (c *testCase) Run(t *testing.T, cfg *testConfig) {
 	}
 	require.NoError(t, err, "failed to establish connection")
 
+	defer func() { _ = cc.Close() }()
+
 	echoClient := echo.NewEchoClient(cc)
 
 	t.Run("unary", func(t *testing.T) {
@@ -343,6 +347,18 @@ func (c *testCase) Run(t *testing.T, cfg *testConfig) {
 }
 
 func (c *testCase) testUnary(t *testing.T, client echo.EchoClient) {
+	t.Run("OK", func(t *testing.T) {
+		c.testUnaryOK(t, client)
+	})
+	t.Run("HeaderError", func(t *testing.T) {
+		c.testUnaryHeaderError(t, client)
+	})
+	t.Run("MessageError", func(t *testing.T) {
+		c.testUnaryMessageError(t, client)
+	})
+}
+
+func (c *testCase) testUnaryOK(t *testing.T, client echo.EchoClient) {
 	ctx, callOpts, finalize := newCtx(t, c.expectUnaryOK, c.expectUnaryOK)
 	defer finalize()
 
@@ -356,7 +372,47 @@ func (c *testCase) testUnary(t *testing.T, client echo.EchoClient) {
 	}
 }
 
+func (c *testCase) testUnaryHeaderError(t *testing.T, client echo.EchoClient) {
+	if !c.expectUnaryOK {
+		t.SkipNow()
+	}
+
+	ctx, callOpts, finalize := newCtx(t, false, true)
+	defer finalize()
+
+	errMsg := fmt.Sprintf("Error for %s", t.Name())
+	ctx = metadata.AppendToOutgoingContext(ctx, "error", errMsg)
+
+	_, err := client.UnaryEcho(ctx, &echo.EchoRequest{Message: ""}, callOpts...)
+	assert.EqualError(t, err, status.Error(codes.InvalidArgument, errMsg).Error())
+}
+
+func (c *testCase) testUnaryMessageError(t *testing.T, client echo.EchoClient) {
+	if !c.expectUnaryOK {
+		t.SkipNow()
+	}
+
+	ctx, callOpts, finalize := newCtx(t, false, true)
+	defer finalize()
+
+	msg := fmt.Sprintf("ERROR:Message error for %s", t.Name())
+	_, err := client.UnaryEcho(ctx, &echo.EchoRequest{Message: msg}, callOpts...)
+	assert.EqualError(t, err, status.Error(codes.InvalidArgument, msg[6:]).Error())
+}
+
 func (c *testCase) testClientStreaming(t *testing.T, client echo.EchoClient) {
+	t.Run("OK", func(t *testing.T) {
+		c.testClientStreamingOK(t, client)
+	})
+	t.Run("HeaderError", func(t *testing.T) {
+		c.testClientStreamingHeaderError(t, client)
+	})
+	t.Run("MessageError", func(t *testing.T) {
+		c.testClientStreamingMessageError(t, client)
+	})
+}
+
+func (c *testCase) testClientStreamingOK(t *testing.T, client echo.EchoClient) {
 	ctx, callOpts, finalize := newCtx(t, c.expectClientStreamOK, c.expectClientStreamOK)
 	defer finalize()
 
@@ -379,6 +435,12 @@ func (c *testCase) testClientStreaming(t *testing.T, client echo.EchoClient) {
 		sentMsgs = append(sentMsgs, msg)
 	}
 
+	assert.NoError(t, stream.Send(&echo.EchoRequest{Message: "HEADERS"}))
+	if c.expectClientStreamOK {
+		_, err := stream.Header()
+		assert.NoError(t, err)
+	}
+
 	resp, err := stream.CloseAndRecv()
 	if c.expectClientStreamOK {
 		require.NoError(t, err)
@@ -391,11 +453,62 @@ func (c *testCase) testClientStreaming(t *testing.T, client echo.EchoClient) {
 	assert.Equal(t, expectedRespMsg, resp.GetMessage())
 }
 
+func (c *testCase) testClientStreamingHeaderError(t *testing.T, client echo.EchoClient) {
+	if !c.expectClientStreamOK {
+		t.SkipNow()
+	}
+
+	ctx, callOpts, finalize := newCtx(t, false, true)
+	defer finalize()
+
+	errMsg := fmt.Sprintf("Error for %s", t.Name())
+	ctx = metadata.AppendToOutgoingContext(ctx, "error", errMsg)
+
+	stream, err := client.ClientStreamingEcho(ctx, callOpts...)
+	require.NoError(t, err)
+
+	require.NoError(t, stream.Send(&echo.EchoRequest{Message: ""}))
+
+	_, err = stream.CloseAndRecv()
+	assert.EqualError(t, err, status.Error(codes.InvalidArgument, errMsg).Error())
+}
+
+func (c *testCase) testClientStreamingMessageError(t *testing.T, client echo.EchoClient) {
+	if !c.expectClientStreamOK {
+		t.SkipNow()
+	}
+
+	ctx, callOpts, finalize := newCtx(t, false, true)
+	defer finalize()
+
+	stream, err := client.ClientStreamingEcho(ctx, callOpts...)
+	require.NoError(t, err)
+
+	msg := fmt.Sprintf("ERROR:Message error for %s", t.Name())
+	require.NoError(t, stream.Send(&echo.EchoRequest{Message: msg}))
+
+	_, err = stream.CloseAndRecv()
+	assert.EqualError(t, err, status.Error(codes.InvalidArgument, msg[6:]).Error())
+}
+
 func (c *testCase) testServerStreaming(t *testing.T, client echo.EchoClient) {
+	t.Run("OK", func(t *testing.T) {
+		c.testServerStreamingOK(t, client)
+	})
+	t.Run("HeaderError", func(t *testing.T) {
+		c.testServerStreamingHeaderError(t, client)
+	})
+	t.Run("MessageError", func(t *testing.T) {
+		c.testServerStreamingMessageError(t, client)
+	})
+}
+
+func (c *testCase) testServerStreamingOK(t *testing.T, client echo.EchoClient) {
 	ctx, callOpts, finalize := newCtx(t, c.expectServerStreamOK, c.expectServerStreamOK)
 	defer finalize()
 
 	var lines []string
+	lines = append(lines, "HEADERS")
 	for _, i := range []int{1, 2, 3} {
 		line := fmt.Sprintf("Message %d for %s", i, t.Name())
 		lines = append(lines, line)
@@ -410,7 +523,12 @@ func (c *testCase) testServerStreaming(t *testing.T, client echo.EchoClient) {
 		return
 	}
 
-	i := 0
+	if c.expectServerStreamOK {
+		_, err := stream.Header()
+		assert.NoError(t, err)
+	}
+
+	i := 1
 	for {
 		resp, err := stream.Recv()
 		if err == io.EOF {
@@ -428,10 +546,56 @@ func (c *testCase) testServerStreaming(t *testing.T, client echo.EchoClient) {
 	}
 
 	assert.True(t, c.expectServerStreamOK)
-	assert.Equal(t, 3, i)
+	assert.Equal(t, 4, i)
+}
+
+func (c *testCase) testServerStreamingHeaderError(t *testing.T, client echo.EchoClient) {
+	if !c.expectServerStreamOK {
+		t.SkipNow()
+	}
+
+	ctx, callOpts, finalize := newCtx(t, false, true)
+	defer finalize()
+
+	errMsg := fmt.Sprintf("Error for %s", t.Name())
+	ctx = metadata.AppendToOutgoingContext(ctx, "error", errMsg)
+
+	stream, err := client.ServerStreamingEcho(ctx, &echo.EchoRequest{Message: ""}, callOpts...)
+	require.NoError(t, err)
+
+	_, err = stream.Recv()
+	assert.EqualError(t, err, status.Error(codes.InvalidArgument, errMsg).Error())
+}
+
+func (c *testCase) testServerStreamingMessageError(t *testing.T, client echo.EchoClient) {
+	if !c.expectServerStreamOK {
+		t.SkipNow()
+	}
+
+	ctx, callOpts, finalize := newCtx(t, false, true)
+	defer finalize()
+
+	msg := fmt.Sprintf("ERROR:Message error for %s", t.Name())
+	stream, err := client.ServerStreamingEcho(ctx, &echo.EchoRequest{Message: msg}, callOpts...)
+	require.NoError(t, err)
+
+	_, err = stream.Recv()
+	assert.EqualError(t, err, status.Error(codes.InvalidArgument, msg[6:]).Error())
 }
 
 func (c *testCase) testBidiStreaming(t *testing.T, client echo.EchoClient) {
+	t.Run("OK", func(t *testing.T) {
+		c.testBidiStreamingOK(t, client)
+	})
+	t.Run("HeaderError", func(t *testing.T) {
+		c.testBidiStreamingHeaderError(t, client)
+	})
+	t.Run("MessageError", func(t *testing.T) {
+		c.testBidiStreamingMessageError(t, client)
+	})
+}
+
+func (c *testCase) testBidiStreamingOK(t *testing.T, client echo.EchoClient) {
 	ctx, callOpts, finalize := newCtx(t, c.expectBidiStreamOK, c.expectBidiStreamOK)
 	defer finalize()
 
@@ -440,6 +604,12 @@ func (c *testCase) testBidiStreaming(t *testing.T, client echo.EchoClient) {
 		require.NoError(t, err)
 	} else if err != nil {
 		return
+	}
+
+	assert.NoError(t, stream.Send(&echo.EchoRequest{Message: "HEADERS"}))
+	if c.expectBidiStreamOK {
+		_, err := stream.Header()
+		assert.NoError(t, err)
 	}
 
 	for i := 0; i < 10; i++ {
@@ -475,6 +645,44 @@ func (c *testCase) testBidiStreaming(t *testing.T, client echo.EchoClient) {
 		require.NotEqual(t, io.EOF, err)
 		require.Error(t, err)
 	}
+}
+
+func (c *testCase) testBidiStreamingHeaderError(t *testing.T, client echo.EchoClient) {
+	if !c.expectBidiStreamOK {
+		t.SkipNow()
+	}
+
+	ctx, callOpts, finalize := newCtx(t, false, true)
+	defer finalize()
+
+	errMsg := fmt.Sprintf("Error for %s", t.Name())
+	ctx = metadata.AppendToOutgoingContext(ctx, "error", errMsg)
+
+	stream, err := client.BidirectionalStreamingEcho(ctx, callOpts...)
+	require.NoError(t, err)
+
+	require.NoError(t, stream.Send(&echo.EchoRequest{Message: ""}))
+
+	_, err = stream.Recv()
+	assert.EqualError(t, err, status.Error(codes.InvalidArgument, errMsg).Error())
+}
+
+func (c *testCase) testBidiStreamingMessageError(t *testing.T, client echo.EchoClient) {
+	if !c.expectBidiStreamOK {
+		t.SkipNow()
+	}
+
+	ctx, callOpts, finalize := newCtx(t, false, true)
+	defer finalize()
+
+	stream, err := client.BidirectionalStreamingEcho(ctx, callOpts...)
+	require.NoError(t, err)
+
+	msg := fmt.Sprintf("ERROR:Message error for %s", t.Name())
+	require.NoError(t, stream.Send(&echo.EchoRequest{Message: msg}))
+
+	_, err = stream.Recv()
+	assert.EqualError(t, err, status.Error(codes.InvalidArgument, msg[6:]).Error())
 }
 
 type testConfig struct {

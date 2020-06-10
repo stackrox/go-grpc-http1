@@ -44,6 +44,10 @@ func (w *wsResponseWriter) Header() http.Header {
 }
 
 func (w *wsResponseWriter) WriteHeader(statusCode int) {
+	if w.headerWritten {
+		return
+	}
+
 	if statusCode != http.StatusOK && statusCode != http.StatusUnsupportedMediaType {
 		glog.Errorf("gRPC server sending unexpected status code: %d", statusCode)
 	}
@@ -98,6 +102,7 @@ func (w *wsResponseWriter) Close() error {
 		}
 		trailerName := http.CanonicalHeaderKey(k[prefixLen:])
 		trailers[trailerName] = append(trailers[trailerName], vs...)
+		delete(hdr, k)
 	}
 
 	// Close the pipe when done, so the reader knows to stop.
