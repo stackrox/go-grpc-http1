@@ -220,6 +220,8 @@ func (h *http2WebSocketProxy) ServeHTTP(w http.ResponseWriter, req *http.Request
 		HTTPHeader:   req.Header,
 		HTTPClient:   h.httpClient,
 		Subprotocols: subprotocols,
+		// gRPC already performs compression, so no need for WebSocket to add compression as well.
+		CompressionMode: websocket.CompressionDisabled,
 	})
 	if err != nil {
 		writeError(w, errors.Wrapf(err, "connecting to gRPC server %q", url.String()))
