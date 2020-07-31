@@ -19,7 +19,6 @@ import (
 	"golang.stackrox.io/grpc-http1/internal/grpcwebsocket"
 	"golang.stackrox.io/grpc-http1/internal/pipeconn"
 	"golang.stackrox.io/grpc-http1/internal/size"
-	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"nhooyr.io/websocket"
 )
@@ -278,16 +277,4 @@ func createClientWSProxy(endpoint string, tlsClientConf *tls.Config) (*http.Serv
 		},
 	}
 	return makeProxyServer(handler)
-}
-
-// ConnectViaWSProxy establishes a gRPC client connection via a HTTP/2 proxy that handles
-// endpoints behind HTTP/1 proxies via WebSocket.
-// This proxy supports unary, server-side, client-side, and bidirectional streaming.
-func ConnectViaWSProxy(ctx context.Context, endpoint string, tlsClientConf *tls.Config, opts ...ConnectOption) (*grpc.ClientConn, error) {
-	proxy, dialCtx, err := createClientWSProxy(endpoint, tlsClientConf)
-	if err != nil {
-		return nil, errors.Wrap(err, "creating client proxy")
-	}
-
-	return dialGRPCServer(ctx, proxy, makeDialOpts(endpoint, dialCtx, tlsClientConf, opts...))
 }

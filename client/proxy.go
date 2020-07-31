@@ -133,19 +133,34 @@ func createClientProxy(endpoint string, tlsClientConf *tls.Config, forceHTTP2 bo
 	return makeProxyServer(proxy)
 }
 
-// ConnectViaProxy establishes a gRPC client connection via a HTTP/2 proxy that handles endpoints behind HTTP/1 proxies.
+// ConnectViaProxy establishes a gRPC client connection via a HTTP/2 proxy that handles endpoints behind HTTP/1.x proxies.
+// Use the WithWebSocket() ConnectOption if you want to connect to a server via WebSocket.
+// Otherwise, setting it to false will use a gRPC-Web "downgrade", as needed.
+//
+// Using WebSocket will allow for both streaming and non-streaming gRPC requests, but is not adaptive.
+// Using gRPC-Web "downgrades" will only allow for non-streaming gRPC requests, but will only downgrade if necessary.
+// This method supports server-streaming requests, but only if there isn't a proxy in the middle that buffers chunked responses.
 func ConnectViaProxy(ctx context.Context, endpoint string, tlsClientConf *tls.Config, opts ...ConnectOption) (*grpc.ClientConn, error) {
 	var connectOpts connectOptions
 	for _, opt := range opts {
 		opt.apply(&connectOpts)
 	}
 
-	proxy, dialCtx, err := createClientProxy(endpoint, tlsClientConf, connectOpts.forceHTTP2, connectOpts.extraH2ALPNs)
+	var proxy *http.Server
+	var dialCtx pipeconn.DialContextFunc
+	var err error
+
+	if connectOpts.useWebSocket {
+		proxy, dialCtx, err = createClientWSProxy(endpoint, tlsClientConf)
+	} else {
+		proxy, dialCtx, err = createClientProxy(endpoint, tlsClientConf, connectOpts.forceHTTP2, connectOpts.extraH2ALPNs)
+	}
+
 	if err != nil {
 		return nil, errors.Wrap(err, "creating client proxy")
 	}
 
-	return dialGRPCServer(ctx, proxy, makeDialOpts(endpoint, dialCtx, tlsClientConf, opts...))
+	return dialGRPCServer(ctx, proxy, makeDialOpts(endpoint, dialCtx, tlsClientConf, connectOpts))
 }
 
 func makeProxyServer(handler http.Handler) (*http.Server, pipeconn.DialContextFunc, error) {
@@ -169,12 +184,7 @@ func makeProxyServer(handler http.Handler) (*http.Server, pipeconn.DialContextFu
 	return srv, dialCtx, nil
 }
 
-func makeDialOpts(endpoint string, dialCtx pipeconn.DialContextFunc, tlsClientConf *tls.Config, opts ...ConnectOption) []grpc.DialOption {
-	var connectOpts connectOptions
-	for _, opt := range opts {
-		opt.apply(&connectOpts)
-	}
-
+func makeDialOpts(endpoint string, dialCtx pipeconn.DialContextFunc, tlsClientConf *tls.Config, connectOpts connectOptions) []grpc.DialOption {
 	dialOpts := make([]grpc.DialOption, 0, len(connectOpts.dialOpts)+2)
 	dialOpts = append(dialOpts, grpc.WithContextDialer(func(ctx context.Context, _ string) (net.Conn, error) {
 		return dialCtx(ctx)

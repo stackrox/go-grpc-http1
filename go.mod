@@ -13,6 +13,6 @@ require (
 	golang.org/x/tools v0.0.0-20200306191617-51e69f71924f
 	google.golang.org/genproto v0.0.0-20200624020401-64a14ca9d1ad // indirect
 	google.golang.org/grpc v1.30.0
-	google.golang.org/grpc/examples v0.0.0-20200709232328-d8193ee9cc3e
+	google.golang.org/grpc/examples v0.0.0-20200729200327-d6c4e49aab24
 	nhooyr.io/websocket v1.8.6
 )

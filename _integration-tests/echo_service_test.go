@@ -315,11 +315,9 @@ func (c *testCase) Run(t *testing.T, cfg *testConfig) {
 		if !c.behindHTTP1ReverseProxy {
 			opts = append(opts, client.ForceHTTP2())
 		}
-		if c.useWebSocket {
-			cc, err = client.ConnectViaWSProxy(ctx, targetAddr, nil, opts...)
-		} else {
-			cc, err = client.ConnectViaProxy(ctx, targetAddr, nil, opts...)
-		}
+		opts = append(opts, client.UseWebSocket(c.useWebSocket))
+
+		cc, err = client.ConnectViaProxy(ctx, targetAddr, nil, opts...)
 	} else {
 		cc, err = grpc.DialContext(ctx, targetAddr, grpc.WithInsecure())
 	}
