@@ -34,6 +34,8 @@ func DialOpts(dialOpts ...grpc.DialOption) ConnectOption {
 }
 
 // ExtraH2ALPNs returns a connection option that instructs the client to use the given ALPN names as HTTP/2 equivalent.
+//
+// This option is ignored when `UseWebSocket(true)` is set.
 func ExtraH2ALPNs(alpns ...string) ConnectOption {
 	return extraH2ALPNsOption(alpns)
 }
@@ -42,6 +44,8 @@ func ExtraH2ALPNs(alpns ...string) ConnectOption {
 // This is required for servers that only speak HTTP/2 (e.g., the vanilla gRPC server regardless of the language), but
 // might break things if the server does not support HTTP/2 or expects HTTP/1. Generally, working with any kind of
 // server requires a TLS connection that allows for ALPN.
+//
+// This option is ignored when `UseWebSocket(true)` is set.
 func ForceHTTP2() ConnectOption {
 	return forceHTTP2Option{}
 }
