@@ -5,9 +5,8 @@ This library enables using all the functionality of a gRPC server even if it is 
 a reverse proxy which does not support HTTP/2, or only supports it for clients (such as Amazon's ALB).
 This is accomplished via either adaptive downgrading to the gRPC-Web response format or utilizing WebSockets.
 
-For a high-level overview, see [this Medium post](https://medium.com/stackrox-engineering/how-to-expose-grpc-services-behind-almost-any-load-balancer-e9ebf8e6d12a).
-
-**Stay tuned for a high-level overview article to the WebSocket solution.**
+For a high-level overview, see [this Medium post](https://medium.com/stackrox-engineering/how-to-expose-grpc-services-behind-almost-any-load-balancer-e9ebf8e6d12a)
+about the gRPC-Web downgrade option and [this Medium post](https://medium.com/stackrox-engineering/grpc-anywhere-f29616087d54) about the gRPC-WebSocket option.
 
 Connection Compatibility Overview
 ---------------------------------
