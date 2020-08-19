@@ -20,6 +20,7 @@ type connectOptions struct {
 	dialOpts     []grpc.DialOption
 	extraH2ALPNs []string
 	forceHTTP2   bool
+	useWebSocket bool
 }
 
 // ConnectOption is an option that can be passed to the `ConnectViaProxy` method.
@@ -33,6 +34,8 @@ func DialOpts(dialOpts ...grpc.DialOption) ConnectOption {
 }
 
 // ExtraH2ALPNs returns a connection option that instructs the client to use the given ALPN names as HTTP/2 equivalent.
+//
+// This option is ignored when `UseWebSocket(true)` is set.
 func ExtraH2ALPNs(alpns ...string) ConnectOption {
 	return extraH2ALPNsOption(alpns)
 }
@@ -41,8 +44,17 @@ func ExtraH2ALPNs(alpns ...string) ConnectOption {
 // This is required for servers that only speak HTTP/2 (e.g., the vanilla gRPC server regardless of the language), but
 // might break things if the server does not support HTTP/2 or expects HTTP/1. Generally, working with any kind of
 // server requires a TLS connection that allows for ALPN.
+//
+// This option is ignored when `UseWebSocket(true)` is set.
 func ForceHTTP2() ConnectOption {
 	return forceHTTP2Option{}
+}
+
+// UseWebSocket returns a connection option that instructs the
+// client to use or not use a WebSocket connection with the server.
+// The default is to not use a WebSocket connection.
+func UseWebSocket(use bool) ConnectOption {
+	return useWebSocketOption(use)
 }
 
 type dialOptsOption []grpc.DialOption
@@ -61,4 +73,10 @@ type forceHTTP2Option struct{}
 
 func (forceHTTP2Option) apply(opts *connectOptions) {
 	opts.forceHTTP2 = true
+}
+
+type useWebSocketOption bool
+
+func (o useWebSocketOption) apply(opts *connectOptions) {
+	opts.useWebSocket = bool(o)
 }

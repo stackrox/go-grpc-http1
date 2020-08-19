@@ -12,17 +12,17 @@
 // See the License for the specific language governing permissions and
 // limitations under the License
 
-package stringutils
+package ioutils
 
-import "strings"
+import "io"
 
-// Split2 splits the given string at the given separator, returning the part before and after the separator as two
-// separate return values.
-// If the string does not contain `sep`, the entire string is returned as the first return value.
-func Split2(str string, sep string) (string, string) {
-	splitIdx := strings.Index(str, sep)
-	if splitIdx == -1 {
-		return str, ""
+// CopyNFull does the same as io.CopyN, but it returns io.ErrUnexpectedEOF
+// if CopyN returns io.EOF and the number of bytes written greater than zero.
+func CopyNFull(dst io.Writer, src io.Reader, n int64) (int64, error) {
+	written, err := io.CopyN(dst, src, n)
+	if err == io.EOF && written != 0 {
+		err = io.ErrUnexpectedEOF
 	}
-	return str[:splitIdx], str[splitIdx+len(sep):]
+
+	return written, err
 }

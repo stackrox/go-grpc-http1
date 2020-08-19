@@ -23,7 +23,6 @@ import (
 	"net/http/httputil"
 
 	"github.com/golang/glog"
-
 	"github.com/pkg/errors"
 	"golang.org/x/net/http2"
 	"golang.org/x/net/http2/h2c"
@@ -59,6 +58,17 @@ func modifyResponse(resp *http.Response) error {
 	return nil
 }
 
+// Fake a gRPC status with the given transport error
+func writeError(w http.ResponseWriter, err error) {
+	w.Header().Set("Content-Type", "application/grpc")
+	w.Header().Add("Trailer", "Grpc-Status")
+	w.Header().Add("Trailer", "Grpc-Message")
+	w.WriteHeader(http.StatusOK)
+
+	w.Header().Set("Grpc-Status", fmt.Sprintf("%d", codes.Unavailable))
+	w.Header().Set("Grpc-Message", errors.Wrap(err, "transport").Error())
+}
+
 func createReverseProxy(endpoint string, transport http.RoundTripper, insecure bool) *httputil.ReverseProxy {
 	scheme := "https"
 	if insecure {
@@ -74,15 +84,7 @@ func createReverseProxy(endpoint string, transport http.RoundTripper, insecure b
 		Transport:      transport,
 		ModifyResponse: modifyResponse,
 		ErrorHandler: func(w http.ResponseWriter, _ *http.Request, err error) {
-			// Fake a gRPC status with the given transport error
-
-			w.Header().Set("Content-Type", "application/grpc")
-			w.Header().Add("Trailer", "Grpc-Status")
-			w.Header().Add("Trailer", "Grpc-Message")
-			w.WriteHeader(http.StatusOK)
-
-			w.Header().Set("Grpc-Status", fmt.Sprintf("%d", codes.Unavailable))
-			w.Header().Set("Grpc-Message", errors.Wrap(err, "transport").Error())
+			writeError(w, err)
 		},
 		// No need to set FlushInterval, as we force the writer to operate in unbuffered mode/flushing after every
 		// write.
@@ -128,20 +130,53 @@ func createClientProxy(endpoint string, tlsClientConf *tls.Config, forceHTTP2 bo
 		return nil, nil, errors.Wrap(err, "creating transport")
 	}
 	proxy := createReverseProxy(endpoint, transport, tlsClientConf == nil)
+	return makeProxyServer(proxy)
+}
 
-	var http2srv http2.Server
-	srv := &http.Server{
-		Handler: h2c.NewHandler(nonBufferingHandler(proxy), &http2srv),
+// ConnectViaProxy establishes a gRPC client connection via a HTTP/2 proxy that handles endpoints behind HTTP/1.x proxies.
+// Use the WithWebSocket() ConnectOption if you want to connect to a server via WebSocket.
+// Otherwise, setting it to false will use a gRPC-Web "downgrade", as needed.
+//
+// Using WebSocket will allow for both streaming and non-streaming gRPC requests, but is not adaptive.
+// Using gRPC-Web "downgrades" will only allow for non-streaming gRPC requests, but will only downgrade if necessary.
+// This method supports server-streaming requests, but only if there isn't a proxy in the middle that buffers chunked responses.
+func ConnectViaProxy(ctx context.Context, endpoint string, tlsClientConf *tls.Config, opts ...ConnectOption) (*grpc.ClientConn, error) {
+	var connectOpts connectOptions
+	for _, opt := range opts {
+		opt.apply(&connectOpts)
 	}
-	if err := http2.ConfigureServer(srv, &http2srv); err != nil {
+
+	var proxy *http.Server
+	var dialCtx pipeconn.DialContextFunc
+	var err error
+
+	if connectOpts.useWebSocket {
+		proxy, dialCtx, err = createClientWSProxy(endpoint, tlsClientConf)
+	} else {
+		proxy, dialCtx, err = createClientProxy(endpoint, tlsClientConf, connectOpts.forceHTTP2, connectOpts.extraH2ALPNs)
+	}
+
+	if err != nil {
+		return nil, errors.Wrap(err, "creating client proxy")
+	}
+
+	return dialGRPCServer(ctx, proxy, makeDialOpts(endpoint, dialCtx, tlsClientConf, connectOpts))
+}
+
+func makeProxyServer(handler http.Handler) (*http.Server, pipeconn.DialContextFunc, error) {
+	lis, dialCtx := pipeconn.NewPipeListener()
+
+	var http2Srv http2.Server
+	srv := &http.Server{
+		Addr:    lis.Addr().String(),
+		Handler: h2c.NewHandler(nonBufferingHandler(handler), &http2Srv),
+	}
+	if err := http2.ConfigureServer(srv, &http2Srv); err != nil {
 		return nil, nil, errors.Wrap(err, "configuring HTTP/2 server")
 	}
 
-	listener, dialCtx := pipeconn.NewPipeListener()
-
-	srv.Addr = listener.Addr().String()
 	go func() {
-		if err := srv.Serve(listener); err != nil && err != http.ErrServerClosed {
+		if err := srv.Serve(lis); err != nil && err != http.ErrServerClosed {
 			glog.Warningf("Unexpected error returned from serving gRPC proxy server: %v", err)
 		}
 	}()
@@ -149,20 +184,9 @@ func createClientProxy(endpoint string, tlsClientConf *tls.Config, forceHTTP2 bo
 	return srv, dialCtx, nil
 }
 
-// ConnectViaProxy establishes a gRPC client connection via a HTTP/2 proxy that handles endpoints behind HTTP/1 proxies.
-func ConnectViaProxy(ctx context.Context, endpoint string, tlsClientConf *tls.Config, opts ...ConnectOption) (*grpc.ClientConn, error) {
-	var connectOpts connectOptions
-	for _, opt := range opts {
-		opt.apply(&connectOpts)
-	}
-
-	proxySrv, dialCtx, err := createClientProxy(endpoint, tlsClientConf, connectOpts.forceHTTP2, connectOpts.extraH2ALPNs)
-	if err != nil {
-		return nil, errors.Wrap(err, "creating client proxy")
-	}
-
+func makeDialOpts(endpoint string, dialCtx pipeconn.DialContextFunc, tlsClientConf *tls.Config, connectOpts connectOptions) []grpc.DialOption {
 	dialOpts := make([]grpc.DialOption, 0, len(connectOpts.dialOpts)+2)
-	dialOpts = append(dialOpts, grpc.WithContextDialer(func(ctx context.Context, target string) (net.Conn, error) {
+	dialOpts = append(dialOpts, grpc.WithContextDialer(func(ctx context.Context, _ string) (net.Conn, error) {
 		return dialCtx(ctx)
 	}))
 	if tlsClientConf != nil {
@@ -170,12 +194,16 @@ func ConnectViaProxy(ctx context.Context, endpoint string, tlsClientConf *tls.Co
 	}
 	dialOpts = append(dialOpts, connectOpts.dialOpts...)
 
-	cc, err := grpc.DialContext(ctx, proxySrv.Addr, dialOpts...)
+	return dialOpts
+}
+
+func dialGRPCServer(ctx context.Context, proxy *http.Server, dialOpts []grpc.DialOption) (*grpc.ClientConn, error) {
+	cc, err := grpc.DialContext(ctx, proxy.Addr, dialOpts...)
 	if err != nil {
-		_ = proxySrv.Close()
+		_ = proxy.Close()
 		return nil, err
 	}
-	go closeServerOnConnShutdown(proxySrv, cc)
+	go closeServerOnConnShutdown(proxy, cc)
 	return cc, nil
 }
 

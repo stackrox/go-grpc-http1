@@ -14,15 +14,28 @@
 
 package stringutils
 
-import "strings"
+import (
+	"fmt"
+	"testing"
 
-// Split2 splits the given string at the given separator, returning the part before and after the separator as two
-// separate return values.
-// If the string does not contain `sep`, the entire string is returned as the first return value.
-func Split2(str string, sep string) (string, string) {
-	splitIdx := strings.Index(str, sep)
-	if splitIdx == -1 {
-		return str, ""
+	"github.com/stretchr/testify/assert"
+)
+
+func TestSplit2(t *testing.T) {
+	for _, testCase := range []struct {
+		s        string
+		sep      string
+		expected []string
+	}{
+		{"Helo", "l", []string{"He", "o"}},
+		{"Hello", "l", []string{"He", "lo"}},
+		{"Hello", "ll", []string{"He", "o"}},
+		{"", "a", []string{"", ""}},
+	} {
+		c := testCase
+		t.Run(fmt.Sprintf("%+v", c), func(t *testing.T) {
+			first, second := Split2(c.s, c.sep)
+			assert.Equal(t, c.expected, []string{first, second})
+		})
 	}
-	return str[:splitIdx], str[splitIdx+len(sep):]
 }
