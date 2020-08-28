@@ -19,6 +19,7 @@ import (
 	"net/http"
 	"strings"
 	"sync"
+	"unicode"
 
 	"github.com/golang/glog"
 	"golang.stackrox.io/grpc-http1/internal/grpcweb"
@@ -109,7 +110,8 @@ func handleGRPCWeb(w http.ResponseWriter, req *http.Request, validPaths map[stri
 		return
 	}
 
-	acceptGRPCWeb := sliceutils.StringFind(req.Header["Accept"], "application/grpc-web") != -1
+	acceptedContentTypes := strings.FieldsFunc(strings.Join(req.Header["Accept"], ","), spaceOrComma)
+	acceptGRPCWeb := sliceutils.StringFind(acceptedContentTypes, "application/grpc-web") != -1
 	if !acceptGRPCWeb {
 		// Client doesn't support trailers and doesn't accept a response downgraded to gRPC web.
 		http.Error(w, "Client neither supports trailers nor gRPC web responses", http.StatusInternalServerError)
@@ -166,4 +168,8 @@ func isWebSocketUpgrade(header http.Header) bool {
 	return header.Get("Connection") == "Upgrade" &&
 		header.Get("Upgrade") == "websocket" &&
 		header.Get("Sec-Websocket-Protocol") == "grpc-ws"
+}
+
+func spaceOrComma(r rune) bool {
+	return r == ',' || unicode.IsSpace(r)
 }
