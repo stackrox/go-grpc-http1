@@ -93,10 +93,12 @@ func handleGRPCWS(w http.ResponseWriter, req *http.Request, grpcSrv *grpc.Server
 	_ = conn.Close(websocket.StatusNormalClosure, "")
 }
 
-func handleGRPCWeb(w http.ResponseWriter, req *http.Request, validPaths map[string]struct{}, grpcSrv *grpc.Server) {
+func handleGRPCWeb(w http.ResponseWriter, req *http.Request, validPaths map[string]struct{}, grpcSrv *grpc.Server, srvOpts *options) {
+	_, isDowngradableMethod := validPaths[req.URL.Path]
+
 	// Check for HTTP/2.
 	if req.ProtoMajor != 2 {
-		if _, ok := validPaths[req.URL.Path]; !ok {
+		if !isDowngradableMethod {
 			// Client-streaming only works with HTTP/2.
 			http.Error(w, "Method cannot be downgraded", http.StatusInternalServerError)
 			return
@@ -104,17 +106,34 @@ func handleGRPCWeb(w http.ResponseWriter, req *http.Request, validPaths map[stri
 		req.ProtoMajor, req.ProtoMinor, req.Proto = 2, 0, "HTTP/2.0"
 	}
 
-	if req.Header.Get("TE") == "trailers" {
-		// Yay, client accepts trailers! Let the normal gRPC handler handle the request.
+	acceptedContentTypes := strings.FieldsFunc(strings.Join(req.Header["Accept"], ","), spaceOrComma)
+	acceptGRPCWeb := sliceutils.StringFind(acceptedContentTypes, "application/grpc-web") != -1
+	// The standard gRPC client doesn't actually send an `Accept: application/grpc` header, so always assume
+	// the client accepts gRPC _unless_ it explicitly specifies an `application/grpc-web` accept header
+	// WITHOUT an `application/grpc` accept header.
+	acceptGRPC := !acceptGRPCWeb || sliceutils.StringFind(acceptedContentTypes, "application/grpc") != -1
+
+	// Only consider sending a gRPC response if we are not told to prefer gRPC-Web or the client doesn't support
+	// gRPC-Web.
+	if srvOpts.preferGRPCWeb && isDowngradableMethod && acceptGRPCWeb {
+		acceptGRPC = false
+	}
+
+	// If the client accepts trailers, AND gRPC responses, AND did not set the "Grpc-Web-Only" header,
+	// return the response as a normal gRPC response.
+	if req.Header.Get("TE") == "trailers" && acceptGRPC && len(req.Header[grpcweb.GRPCWebOnlyHeader]) == 0 {
 		grpcSrv.ServeHTTP(w, req)
 		return
 	}
 
-	acceptedContentTypes := strings.FieldsFunc(strings.Join(req.Header["Accept"], ","), spaceOrComma)
-	acceptGRPCWeb := sliceutils.StringFind(acceptedContentTypes, "application/grpc-web") != -1
 	if !acceptGRPCWeb {
 		// Client doesn't support trailers and doesn't accept a response downgraded to gRPC web.
 		http.Error(w, "Client neither supports trailers nor gRPC web responses", http.StatusInternalServerError)
+		return
+	}
+
+	if !isDowngradableMethod {
+		http.Error(w, "Client requires a gRPC-Web response to a method that cannot be downgraded", http.StatusBadRequest)
 		return
 	}
 
@@ -132,7 +151,7 @@ func handleGRPCWeb(w http.ResponseWriter, req *http.Request, validPaths map[stri
 
 // CreateDowngradingHandler takes a gRPC server and a plain HTTP handler, and returns an HTTP handler that has the
 // capability of handling HTTP requests and gRPC requests that may require downgrading the response to gRPC-Web or gRPC-WebSocket.
-func CreateDowngradingHandler(grpcSrv *grpc.Server, httpHandler http.Handler) http.Handler {
+func CreateDowngradingHandler(grpcSrv *grpc.Server, httpHandler http.Handler, opts ...Option) http.Handler {
 	// Only allow paths corresponding to gRPC methods that do not use client streaming for gRPC-Web.
 	validGRPCWebPaths := make(map[string]struct{})
 
@@ -148,6 +167,11 @@ func CreateDowngradingHandler(grpcSrv *grpc.Server, httpHandler http.Handler) ht
 		}
 	}
 
+	var serverOpts options
+	for _, opt := range opts {
+		opt.apply(&serverOpts)
+	}
+
 	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 		if isWebSocketUpgrade(req.Header) {
 			handleGRPCWS(w, req, grpcSrv)
@@ -160,7 +184,7 @@ func CreateDowngradingHandler(grpcSrv *grpc.Server, httpHandler http.Handler) ht
 			return
 		}
 
-		handleGRPCWeb(w, req, validGRPCWebPaths, grpcSrv)
+		handleGRPCWeb(w, req, validGRPCWebPaths, grpcSrv, &serverOpts)
 	})
 }
 

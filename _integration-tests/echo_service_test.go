@@ -73,7 +73,15 @@ func newCtx(t *testing.T, checkHeaders bool, checkTrailers bool) (context.Contex
 }
 
 func TestWithEchoService(t *testing.T) {
-	testCfg := newTestConfig(t)
+	for _, serverPreferGRPCWeb := range []bool{false, true} {
+		t.Run(fmt.Sprintf("prefer-grpc-web=%t", serverPreferGRPCWeb), func(t *testing.T) {
+			testWithEchoService(t, serverPreferGRPCWeb)
+		})
+	}
+}
+
+func testWithEchoService(t *testing.T, serverPreferGRPCWeb bool) {
+	testCfg := newTestConfig(t, serverPreferGRPCWeb)
 	defer testCfg.TearDown()
 
 	cases := []testCase{
@@ -145,6 +153,44 @@ func TestWithEchoService(t *testing.T) {
 			expectClientStreamOK:    false,
 			expectBidiStreamOK:      false,
 		},
+		{
+			targetID:             "raw-grpc",
+			useProxy:             true,
+			forceDowngrade:       true,
+			expectUnaryOK:        true,
+			expectServerStreamOK: true,
+			expectClientStreamOK: true,
+			expectBidiStreamOK:   true,
+		},
+		{
+			targetID:                "raw-grpc",
+			behindHTTP1ReverseProxy: true,
+			useProxy:                true,
+			forceDowngrade:          true,
+			expectUnaryOK:           false,
+			expectServerStreamOK:    false,
+			expectClientStreamOK:    false,
+			expectBidiStreamOK:      false,
+		},
+		{
+			targetID:             "downgrading-grpc",
+			useProxy:             true,
+			forceDowngrade:       true,
+			expectUnaryOK:        true,
+			expectServerStreamOK: true,
+			expectClientStreamOK: false,
+			expectBidiStreamOK:   false,
+		},
+		{
+			targetID:                "downgrading-grpc",
+			behindHTTP1ReverseProxy: true,
+			useProxy:                true,
+			forceDowngrade:          true,
+			expectUnaryOK:           true,
+			expectServerStreamOK:    true,
+			expectClientStreamOK:    false,
+			expectBidiStreamOK:      false,
+		},
 	}
 
 	for _, c := range cases {
@@ -155,7 +201,7 @@ func TestWithEchoService(t *testing.T) {
 }
 
 func TestWSWithEchoService(t *testing.T) {
-	testCfg := newTestConfig(t)
+	testCfg := newTestConfig(t, false)
 	defer testCfg.TearDown()
 
 	cases := []testCase{
@@ -269,6 +315,7 @@ type testCase struct {
 	behindHTTP1ReverseProxy bool
 	useProxy                bool
 	useWebSocket            bool
+	forceDowngrade          bool
 
 	expectUnaryOK        bool
 	expectClientStreamOK bool
@@ -282,6 +329,8 @@ func (c *testCase) Name() string {
 
 	if c.useWebSocket {
 		sb.WriteString("-ws")
+	} else if c.forceDowngrade {
+		sb.WriteString("-forced-downgrade")
 	}
 
 	if c.behindHTTP1ReverseProxy {
@@ -329,7 +378,7 @@ func (c *testCase) Run(t *testing.T, cfg *testConfig) {
 		if !c.behindHTTP1ReverseProxy {
 			opts = append(opts, client.ForceHTTP2())
 		}
-		opts = append(opts, client.UseWebSocket(c.useWebSocket))
+		opts = append(opts, client.UseWebSocket(c.useWebSocket), client.ForceDowngrade(c.forceDowngrade))
 
 		cc, err = client.ConnectViaProxy(ctx, targetAddr, nil, opts...)
 	} else {
@@ -704,7 +753,7 @@ type testConfig struct {
 	targetAddrs map[string]string
 }
 
-func newTestConfig(t *testing.T) *testConfig {
+func newTestConfig(t *testing.T, preferGRPCWeb bool) *testConfig {
 	targetAddrs := make(map[string]string)
 	grpcSrv := grpc.NewServer()
 	echo.RegisterEchoServer(grpcSrv, echoService{})
@@ -713,11 +762,13 @@ func newTestConfig(t *testing.T) *testConfig {
 	go grpcSrv.Serve(lis)
 	targetAddrs["raw-grpc"] = lis.Addr().String()
 
+	opts := []server.Option{server.PreferGRPCWeb(preferGRPCWeb)}
+
 	downgradingSrv := &http.Server{}
 	var h2Srv http2.Server
 	require.NoError(t, http2.ConfigureServer(downgradingSrv, &h2Srv))
 	downgradingSrv.Handler = h2c.NewHandler(
-		server.CreateDowngradingHandler(grpcSrv, http.NotFoundHandler()),
+		server.CreateDowngradingHandler(grpcSrv, http.NotFoundHandler(), opts...),
 		&h2Srv)
 
 	lis = listenLocal(t)

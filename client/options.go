@@ -17,10 +17,11 @@ package client
 import "google.golang.org/grpc"
 
 type connectOptions struct {
-	dialOpts     []grpc.DialOption
-	extraH2ALPNs []string
-	forceHTTP2   bool
-	useWebSocket bool
+	dialOpts       []grpc.DialOption
+	extraH2ALPNs   []string
+	forceHTTP2     bool
+	forceDowngrade bool
+	useWebSocket   bool
 }
 
 // ConnectOption is an option that can be passed to the `ConnectViaProxy` method.
@@ -57,6 +58,14 @@ func UseWebSocket(use bool) ConnectOption {
 	return useWebSocketOption(use)
 }
 
+// ForceDowngrade returns a connection option that instructs the
+// client to always force gRPC-Web downgrade for gRPC requests.
+// Client- or Bidi-streaming requests will not work.
+// This option has no effect if websockets are being used.
+func ForceDowngrade(force bool) ConnectOption {
+	return forceDowngradeOption(force)
+}
+
 type dialOptsOption []grpc.DialOption
 
 func (o dialOptsOption) apply(opts *connectOptions) {
@@ -79,4 +88,10 @@ type useWebSocketOption bool
 
 func (o useWebSocketOption) apply(opts *connectOptions) {
 	opts.useWebSocket = bool(o)
+}
+
+type forceDowngradeOption bool
+
+func (o forceDowngradeOption) apply(opts *connectOptions) {
+	opts.forceDowngrade = bool(o)
 }
