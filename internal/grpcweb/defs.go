@@ -19,4 +19,10 @@ const (
 	trailerMessageFlag byte = 1 << 7
 
 	completeHeaderLen = 5
+
+	// GRPCWebOnlyHeader is a header to indicate that the server should always return gRPC-Web
+	// responses, regardless of detected client capabilities. The presence of the header alone
+	// is sufficient, however it is recommended that a client chooses "true" as the only value
+	// whenver the header is used.
+	GRPCWebOnlyHeader = `Grpc-Web-Only`
 )
