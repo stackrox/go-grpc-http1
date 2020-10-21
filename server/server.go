@@ -178,7 +178,7 @@ func CreateDowngradingHandler(grpcSrv *grpc.Server, httpHandler http.Handler, op
 			return
 		}
 
-		if contentType, _ := stringutils.Split2(req.Header.Get("Content-Type"), "+"); contentType != "application/grpc" && contentType != "application/grpc-web" {
+		if contentType, _ := stringutils.Split2(req.Header.Get("Content-Type"), "+"); contentType != "application/grpc" {
 			// Non-gRPC request to the same port.
 			httpHandler.ServeHTTP(w, req)
 			return
