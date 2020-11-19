@@ -21,6 +21,7 @@ import (
 	"crypto/tls"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"net/http"
 	"net/textproto"
 	"strings"
@@ -228,7 +229,7 @@ func (h *http2WebSocketProxy) ServeHTTP(w http.ResponseWriter, req *http.Request
 	url := *req.URL // Copy the value, so we do not overwrite the URL.
 	url.Scheme = scheme
 	url.Host = h.endpoint
-	conn, _, err := websocket.Dial(req.Context(), url.String(), &websocket.DialOptions{
+	conn, resp, err := websocket.Dial(req.Context(), url.String(), &websocket.DialOptions{
 		// Add the gRPC headers to the WebSocket handshake request.
 		HTTPHeader:   req.Header,
 		HTTPClient:   h.httpClient,
@@ -237,7 +238,8 @@ func (h *http2WebSocketProxy) ServeHTTP(w http.ResponseWriter, req *http.Request
 		CompressionMode: websocket.CompressionDisabled,
 	})
 	if err != nil {
-		writeError(w, errors.Wrapf(err, "connecting to gRPC server %q", url.String()))
+		contents, _ := ioutil.ReadAll(resp.Body)
+		writeError(w, errors.Wrapf(err, "connecting to gRPC server %q gave the error and response body = %s", url.String(), contents))
 		return
 	}
 	conn.SetReadLimit(64 * size.MB)
