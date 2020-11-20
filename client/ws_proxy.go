@@ -27,12 +27,11 @@ import (
 	"sync"
 	"sync/atomic"
 
-	"golang.stackrox.io/grpc-http1/internal/httputils"
-
 	"github.com/golang/glog"
 	"github.com/pkg/errors"
 	"golang.stackrox.io/grpc-http1/internal/grpcproto"
 	"golang.stackrox.io/grpc-http1/internal/grpcwebsocket"
+	"golang.stackrox.io/grpc-http1/internal/httputils"
 	"golang.stackrox.io/grpc-http1/internal/pipeconn"
 	"golang.stackrox.io/grpc-http1/internal/size"
 	"google.golang.org/grpc/codes"
@@ -239,9 +238,13 @@ func (h *http2WebSocketProxy) ServeHTTP(w http.ResponseWriter, req *http.Request
 		// gRPC already performs compression, so no need for WebSocket to add compression as well.
 		CompressionMode: websocket.CompressionDisabled,
 	})
+	if resp != nil {
+		// Not strictly necessary, because the library already replaces resp.Body with a NopCloser,
+		// but seems too easy to miss should we switch to a different library.
+		defer func() { _ = resp.Body.Close() }()
+	}
 	if err != nil {
 		if resp != nil {
-			defer func() { _ = resp.Body.Close() }()
 			if respErr := httputils.ExtractResponseError(resp); respErr != nil {
 				err = fmt.Errorf("%w; response error: %v", err, respErr)
 			}

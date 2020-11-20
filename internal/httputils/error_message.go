@@ -37,17 +37,17 @@ func ExtractResponseError(resp *http.Response) error {
 	bodyReader := io.LimitReader(resp.Body, maxBodyBytes)
 	contents, err := ioutil.ReadAll(bodyReader)
 	contentsStr := strings.TrimSpace(string(contents))
-	if utf8.Valid(contents) {
+	if !utf8.Valid(contents) {
 		contentsStr = "invalid UTF-8 characters in response"
 	}
 	if err != nil {
-		if len(contents) == 0 {
+		if contentsStr == "" {
 			return fmt.Errorf("%s, error reading response body: %v", resp.Status, err)
 		}
 		return fmt.Errorf("%s: %s, error reading response body after %d bytes: %v", resp.Status, contentsStr, len(contents), err)
 	}
 
-	if len(contentsStr) == 0 {
+	if contentsStr == "" {
 		return errors.New(resp.Status)
 	}
 	return fmt.Errorf("%s: %s", resp.Status, contentsStr)
