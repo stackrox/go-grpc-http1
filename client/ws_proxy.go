@@ -238,13 +238,13 @@ func (h *http2WebSocketProxy) ServeHTTP(w http.ResponseWriter, req *http.Request
 		// gRPC already performs compression, so no need for WebSocket to add compression as well.
 		CompressionMode: websocket.CompressionDisabled,
 	})
-	if resp != nil {
+	if resp != nil && resp.Body != nil {
 		// Not strictly necessary because the library already replaces resp.Body with a NopCloser,
 		// but seems too easy to miss should we switch to a different library.
 		defer func() { _ = resp.Body.Close() }()
 	}
 	if err != nil {
-		if resp != nil {
+		if resp != nil && resp.Body != nil {
 			if respErr := httputils.ExtractResponseError(resp); respErr != nil {
 				err = fmt.Errorf("%w; response error: %v", err, respErr)
 			}
