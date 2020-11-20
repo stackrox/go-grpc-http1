@@ -15,6 +15,7 @@
 package server
 
 import (
+	"errors"
 	"fmt"
 	"net/http"
 	"strings"
@@ -173,7 +174,10 @@ func CreateDowngradingHandler(grpcSrv *grpc.Server, httpHandler http.Handler, op
 	}
 
 	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
-		if isWebSocketUpgrade(req.Header) {
+		if isUpgrade, err := isWebSocketUpgrade(req.Header); err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		} else if isUpgrade {
 			handleGRPCWS(w, req, grpcSrv)
 			return
 		}
@@ -188,10 +192,17 @@ func CreateDowngradingHandler(grpcSrv *grpc.Server, httpHandler http.Handler, op
 	})
 }
 
-func isWebSocketUpgrade(header http.Header) bool {
-	return header.Get("Connection") == "Upgrade" &&
-		header.Get("Upgrade") == "websocket" &&
-		header.Get("Sec-Websocket-Protocol") == "grpc-ws"
+func isWebSocketUpgrade(header http.Header) (bool, error) {
+	if header.Get("Sec-Websocket-Protocol") != grpcwebsocket.SubprotocolName {
+		return false, nil
+	}
+	if header.Get("Connection") != "Upgrade" {
+		return false, errors.New("missing 'Connection: Upgrade' header in gRPC-websocket request (this usually means your proxy or load balancer does not support websockets)")
+	}
+	if header.Get("Upgrade") != "websocket" {
+		return false, errors.New("missing 'Upgrade: websocket' header in gRPC-websocket request (this usually means your proxy or load balancer does not support websockets)")
+	}
+	return true, nil
 }
 
 func spaceOrComma(r rune) bool {

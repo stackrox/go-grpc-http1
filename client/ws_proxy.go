@@ -21,12 +21,13 @@ import (
 	"crypto/tls"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"net/http"
 	"net/textproto"
 	"strings"
 	"sync"
 	"sync/atomic"
+
+	"golang.stackrox.io/grpc-http1/internal/httputils"
 
 	"github.com/golang/glog"
 	"github.com/pkg/errors"
@@ -43,7 +44,7 @@ const (
 )
 
 var (
-	subprotocols = []string{"grpc-ws"}
+	subprotocols = []string{grpcwebsocket.SubprotocolName}
 )
 
 type http2WebSocketProxy struct {
@@ -210,7 +211,8 @@ func (c *websocketConn) writeErrorIfNecessary() {
 	c.w.WriteHeader(http.StatusOK)
 
 	c.w.Header().Set("Trailer:Grpc-Status", fmt.Sprintf("%d", codes.Unavailable))
-	c.w.Header().Set("Trailer:Grpc-Message", errors.Wrap(c.err, "transport").Error())
+	errMsg := errors.Wrap(c.err, "transport").Error()
+	c.w.Header().Set("Trailer:Grpc-Message", grpcproto.EncodeGrpcMessage(errMsg))
 }
 
 // ServeHTTP handles gRPC-WebSocket traffic.
@@ -238,8 +240,13 @@ func (h *http2WebSocketProxy) ServeHTTP(w http.ResponseWriter, req *http.Request
 		CompressionMode: websocket.CompressionDisabled,
 	})
 	if err != nil {
-		contents, _ := ioutil.ReadAll(resp.Body)
-		writeError(w, errors.Wrapf(err, "connecting to gRPC server %q gave the error and response body = %s", url.String(), contents))
+		if resp != nil {
+			defer func() { _ = resp.Body.Close() }()
+			if respErr := httputils.ExtractResponseError(resp); respErr != nil {
+				err = fmt.Errorf("%w; response error: %v", err, respErr)
+			}
+		}
+		writeError(w, errors.Wrapf(err, "connecting to gRPC endpoint %q", url.String()))
 		return
 	}
 	conn.SetReadLimit(64 * size.MB)
