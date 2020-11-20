@@ -239,7 +239,7 @@ func (h *http2WebSocketProxy) ServeHTTP(w http.ResponseWriter, req *http.Request
 		CompressionMode: websocket.CompressionDisabled,
 	})
 	if resp != nil {
-		// Not strictly necessary, because the library already replaces resp.Body with a NopCloser,
+		// Not strictly necessary because the library already replaces resp.Body with a NopCloser,
 		// but seems too easy to miss should we switch to a different library.
 		defer func() { _ = resp.Body.Close() }()
 	}
