@@ -63,9 +63,14 @@ generate-go-srcs: dev
 	@echo "+ $@"
 	@go generate ./...
 
-### UNIT TESTS
+### TESTS
 
 .PHONY: unit-tests
 unit-tests: deps
 	@echo "+ $@"
 	@go test $(TESTFLAGS) ./...
+
+.PHONY: integration-tests
+integration-tests: deps
+	@echo "+ $@"
+	@cd _integration-tests ; go test -count=1 -p 4 .
