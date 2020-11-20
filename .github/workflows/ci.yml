@@ -22,7 +22,7 @@ jobs:
       - name: Style checks
         run: |
           make style
-          if git diff HEAD; then
+          if ! git diff --exit-code HEAD; then
             echo
             echo "*** Files are not formatted properly. See the above diff for more info."
             exit 1
