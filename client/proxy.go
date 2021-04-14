@@ -26,7 +26,9 @@ import (
 	"github.com/pkg/errors"
 	"golang.org/x/net/http2"
 	"golang.org/x/net/http2/h2c"
+	"golang.stackrox.io/grpc-http1/internal/grpcproto"
 	"golang.stackrox.io/grpc-http1/internal/grpcweb"
+	"golang.stackrox.io/grpc-http1/internal/httputils"
 	"golang.stackrox.io/grpc-http1/internal/pipeconn"
 	"golang.stackrox.io/grpc-http1/internal/stringutils"
 	"google.golang.org/grpc"
@@ -36,6 +38,13 @@ import (
 )
 
 func modifyResponse(resp *http.Response) error {
+	// Check if the response is an error response right away, and attempt to display a more useful
+	// message than gRPC does by default. We still delegate to the default gRPC behavior for 200 responses
+	// which are otherwise invalid.
+	if err := httputils.ExtractResponseError(resp); err != nil {
+		return errors.Wrap(err, "receiving gRPC response from remote endpoint")
+	}
+
 	if resp.ContentLength == 0 {
 		// Make sure headers do not get flushed, as otherwise the gRPC client will complain about missing trailers.
 		resp.Header.Set(dontFlushHeadersHeaderKey, "true")
@@ -66,7 +75,8 @@ func writeError(w http.ResponseWriter, err error) {
 	w.WriteHeader(http.StatusOK)
 
 	w.Header().Set("Grpc-Status", fmt.Sprintf("%d", codes.Unavailable))
-	w.Header().Set("Grpc-Message", errors.Wrap(err, "transport").Error())
+	errMsg := errors.Wrap(err, "transport").Error()
+	w.Header().Set("Grpc-Message", grpcproto.EncodeGrpcMessage(errMsg))
 }
 
 func createReverseProxy(endpoint string, transport http.RoundTripper, insecure, forceDowngrade bool) *httputil.ReverseProxy {

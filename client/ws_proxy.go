@@ -31,6 +31,7 @@ import (
 	"github.com/pkg/errors"
 	"golang.stackrox.io/grpc-http1/internal/grpcproto"
 	"golang.stackrox.io/grpc-http1/internal/grpcwebsocket"
+	"golang.stackrox.io/grpc-http1/internal/httputils"
 	"golang.stackrox.io/grpc-http1/internal/pipeconn"
 	"golang.stackrox.io/grpc-http1/internal/size"
 	"google.golang.org/grpc/codes"
@@ -42,7 +43,7 @@ const (
 )
 
 var (
-	subprotocols = []string{"grpc-ws"}
+	subprotocols = []string{grpcwebsocket.SubprotocolName}
 )
 
 type http2WebSocketProxy struct {
@@ -209,7 +210,8 @@ func (c *websocketConn) writeErrorIfNecessary() {
 	c.w.WriteHeader(http.StatusOK)
 
 	c.w.Header().Set("Trailer:Grpc-Status", fmt.Sprintf("%d", codes.Unavailable))
-	c.w.Header().Set("Trailer:Grpc-Message", errors.Wrap(c.err, "transport").Error())
+	errMsg := errors.Wrap(c.err, "transport").Error()
+	c.w.Header().Set("Trailer:Grpc-Message", grpcproto.EncodeGrpcMessage(errMsg))
 }
 
 // ServeHTTP handles gRPC-WebSocket traffic.
@@ -228,7 +230,7 @@ func (h *http2WebSocketProxy) ServeHTTP(w http.ResponseWriter, req *http.Request
 	url := *req.URL // Copy the value, so we do not overwrite the URL.
 	url.Scheme = scheme
 	url.Host = h.endpoint
-	conn, _, err := websocket.Dial(req.Context(), url.String(), &websocket.DialOptions{
+	conn, resp, err := websocket.Dial(req.Context(), url.String(), &websocket.DialOptions{
 		// Add the gRPC headers to the WebSocket handshake request.
 		HTTPHeader:   req.Header,
 		HTTPClient:   h.httpClient,
@@ -236,8 +238,18 @@ func (h *http2WebSocketProxy) ServeHTTP(w http.ResponseWriter, req *http.Request
 		// gRPC already performs compression, so no need for WebSocket to add compression as well.
 		CompressionMode: websocket.CompressionDisabled,
 	})
+	if resp != nil && resp.Body != nil {
+		// Not strictly necessary because the library already replaces resp.Body with a NopCloser,
+		// but seems too easy to miss should we switch to a different library.
+		defer func() { _ = resp.Body.Close() }()
+	}
 	if err != nil {
-		writeError(w, errors.Wrapf(err, "connecting to gRPC server %q", url.String()))
+		if resp != nil && resp.Body != nil {
+			if respErr := httputils.ExtractResponseError(resp); respErr != nil {
+				err = fmt.Errorf("%w; response error: %v", err, respErr)
+			}
+		}
+		writeError(w, errors.Wrapf(err, "connecting to gRPC endpoint %q", url.String()))
 		return
 	}
 	conn.SetReadLimit(64 * size.MB)
