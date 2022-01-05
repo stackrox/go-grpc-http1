@@ -196,12 +196,15 @@ func isWebSocketUpgrade(header http.Header) (bool, error) {
 	if header.Get("Sec-Websocket-Protocol") != grpcwebsocket.SubprotocolName {
 		return false, nil
 	}
-	if header.Get("Connection") != "Upgrade" {
+
+	if !strings.EqualFold(header.Get("Connection"), "upgrade") {
 		return false, errors.New("missing 'Connection: Upgrade' header in gRPC-websocket request (this usually means your proxy or load balancer does not support websockets)")
 	}
-	if header.Get("Upgrade") != "websocket" {
+
+	if !strings.EqualFold(header.Get("Upgrade"), "websocket") {
 		return false, errors.New("missing 'Upgrade: websocket' header in gRPC-websocket request (this usually means your proxy or load balancer does not support websockets)")
 	}
+
 	return true, nil
 }
 
