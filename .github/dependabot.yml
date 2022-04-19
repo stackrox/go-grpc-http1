@@ -13,3 +13,12 @@ updates:
     open-pull-requests-limit: 3
     reviewers:
       - 'RTann'
+
+  - package-ecosystem: 'gomod'
+    directory: '/_integration-tests'
+    schedule:
+      interval: 'weekly'
+      day: 'wednesday'
+    open-pull-requests-limit: 3
+    reviewers:
+      - 'RTann'
