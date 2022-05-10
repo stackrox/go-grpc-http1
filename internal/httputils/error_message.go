@@ -4,7 +4,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"net/http"
 	"regexp"
 	"strings"
@@ -35,7 +34,7 @@ func ExtractResponseError(resp *http.Response) error {
 	}
 
 	bodyReader := io.LimitReader(resp.Body, maxBodyBytes)
-	contents, err := ioutil.ReadAll(bodyReader)
+	contents, err := io.ReadAll(bodyReader)
 	contentsStr := strings.TrimSpace(string(contents))
 	if !utf8.Valid(contents) {
 		contentsStr = "invalid UTF-8 characters in response"

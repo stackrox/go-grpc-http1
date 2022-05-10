@@ -1,6 +1,6 @@
 module golang.stackrox.io/grpc-http1/_integration-tests
 
-go 1.14
+go 1.16
 
 require (
 	github.com/stretchr/testify v1.7.1

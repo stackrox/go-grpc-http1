@@ -18,7 +18,6 @@ import (
 	"bytes"
 	"encoding/binary"
 	"io"
-	"io/ioutil"
 	"net/http"
 	"testing"
 
@@ -45,7 +44,7 @@ func concat(data ...[]byte) []byte {
 }
 
 func stream(data ...[]byte) io.ReadCloser {
-	return ioutil.NopCloser(bytes.NewReader(concat(data...)))
+	return io.NopCloser(bytes.NewReader(concat(data...)))
 }
 
 func TestReadOK(t *testing.T) {
@@ -67,7 +66,7 @@ func TestReadOK(t *testing.T) {
 
 	webResponseReader := NewResponseReader(input, &trailers, nil)
 
-	readData, err := ioutil.ReadAll(webResponseReader)
+	readData, err := io.ReadAll(webResponseReader)
 	assert.NoError(t, err)
 	assert.Equal(t, messagePayload, readData)
 
@@ -81,7 +80,7 @@ func TestNoDataOK(t *testing.T) {
 
 	webResponseReader := NewResponseReader(input, &trailers, nil)
 
-	readData, err := ioutil.ReadAll(webResponseReader)
+	readData, err := io.ReadAll(webResponseReader)
 	assert.NoError(t, err)
 	assert.Empty(t, readData)
 	assert.Empty(t, trailers)
@@ -107,7 +106,7 @@ func TestExtraDataError(t *testing.T) {
 
 	webResponseReader := NewResponseReader(input, &trailers, nil)
 
-	readData, err := ioutil.ReadAll(webResponseReader)
+	readData, err := io.ReadAll(webResponseReader)
 	assert.Error(t, err)
 	assert.Equal(t, messagePayload, readData)
 	assert.Equal(t, expectedTrailers, trailers)
@@ -125,7 +124,7 @@ func TestNoTrailersError(t *testing.T) {
 
 	webResponseReader := NewResponseReader(input, &trailers, nil)
 
-	readData, err := ioutil.ReadAll(webResponseReader)
+	readData, err := io.ReadAll(webResponseReader)
 	assert.Error(t, err)
 	assert.Equal(t, messagePayload, readData)
 	assert.Empty(t, trailers)
