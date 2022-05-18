@@ -11,6 +11,6 @@ require (
 	golang.org/x/net v0.0.0-20201021035429-f5854403a974
 	golang.org/x/tools v0.0.0-20200806022845-90696ccdc692
 	google.golang.org/genproto v0.0.0-20200624020401-64a14ca9d1ad // indirect
-	google.golang.org/grpc v1.46.0
+	google.golang.org/grpc v1.46.2
 	nhooyr.io/websocket v1.8.7
 )
