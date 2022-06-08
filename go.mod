@@ -6,7 +6,7 @@ require (
 	github.com/golang/glog v1.0.0
 	github.com/mauricelam/genny v0.0.0-20190320071652-0800202903e5
 	github.com/pkg/errors v0.9.1
-	github.com/stretchr/testify v1.7.1
+	github.com/stretchr/testify v1.7.2
 	golang.org/x/lint v0.0.0-20200302205851-738671d3881b
 	golang.org/x/net v0.0.0-20201021035429-f5854403a974
 	golang.org/x/tools v0.0.0-20200806022845-90696ccdc692
