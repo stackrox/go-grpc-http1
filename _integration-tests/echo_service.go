@@ -33,7 +33,9 @@ var (
 // echoService implements an echo server, which also sets headers and trailers.
 // Given the 'ERROR:' keyword in the message or 'error' in the header, the call will trigger an error.
 // This allows for testing for errors during various stages of the response.
-type echoService struct{}
+type echoService struct {
+	echo.UnimplementedEchoServer
+}
 
 func (echoService) echoHeadersAndTrailers(ctx context.Context) error {
 	md, _ := metadata.FromIncomingContext(ctx)
