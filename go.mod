@@ -9,7 +9,7 @@ require (
 	github.com/stretchr/testify v1.7.2
 	golang.org/x/lint v0.0.0-20210508222113-6edffad5e616
 	golang.org/x/net v0.0.0-20220607020251-c690dde0001d
-	golang.org/x/tools v0.1.10
+	golang.org/x/tools v0.1.11
 	google.golang.org/genproto v0.0.0-20200624020401-64a14ca9d1ad // indirect
 	google.golang.org/grpc v1.47.0
 	nhooyr.io/websocket v1.8.7
