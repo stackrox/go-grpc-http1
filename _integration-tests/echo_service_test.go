@@ -33,6 +33,7 @@ import (
 	"golang.stackrox.io/grpc-http1/server"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/examples/features/proto/echo"
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
@@ -374,7 +375,7 @@ func (c *testCase) Run(t *testing.T, cfg *testConfig) {
 	)
 
 	if c.useProxy {
-		opts := []client.ConnectOption{client.DialOpts(grpc.WithInsecure())}
+		opts := []client.ConnectOption{client.DialOpts(grpc.WithTransportCredentials(insecure.NewCredentials()))}
 		if !c.behindHTTP1ReverseProxy {
 			opts = append(opts, client.ForceHTTP2())
 		}
@@ -382,7 +383,7 @@ func (c *testCase) Run(t *testing.T, cfg *testConfig) {
 
 		cc, err = client.ConnectViaProxy(ctx, targetAddr, nil, opts...)
 	} else {
-		cc, err = grpc.DialContext(ctx, targetAddr, grpc.WithInsecure())
+		cc, err = grpc.DialContext(ctx, targetAddr, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	}
 	require.NoError(t, err, "failed to establish connection")
 
