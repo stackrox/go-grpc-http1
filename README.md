@@ -63,7 +63,7 @@ The first two arguments are the same as for `grpc.DialContext`. The third argume
 config to be used for connecting to the target address. Note that this is different from the usual gRPC API,
 which specifies client TLS config via the `grpc.WithTransportCredentials`. For a plaintext (unencrypted)
 connection to the server, pass a `nil` TLS config; however, this does *not* free you from passing the
-`grpc.WithInsecure()` gRPC dial option.
+`grpc.WithInsecure()` (nor `grpc.WithTransportCredentials(insecure.NewCredentials())`) gRPC dial option.
 
 The last (variadic) parameter specifies options that modify the dialing behavior. You can pass any gRPC dial
 options via `client.DialOpts(...)`; however, the `grpc.WithTransportCredentials` option will not be needed.
