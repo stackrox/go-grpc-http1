@@ -69,7 +69,7 @@ func (w *responseWriter) prepareHeadersIfNecessary() {
 	}
 
 	hdr := w.w.Header()
-	w.announcedTrailers = sliceutils.StringClone(hdr["Trailer"])
+	w.announcedTrailers = sliceutils.Clone(hdr["Trailer"])
 	// Trailers are sent in a data frame, so don't announce trailers as otherwise downstream proxies might get confused.
 	hdr.Del("Trailer")
 

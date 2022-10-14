@@ -108,11 +108,11 @@ func handleGRPCWeb(w http.ResponseWriter, req *http.Request, validPaths map[stri
 	}
 
 	acceptedContentTypes := strings.FieldsFunc(strings.Join(req.Header["Accept"], ","), spaceOrComma)
-	acceptGRPCWeb := sliceutils.StringFind(acceptedContentTypes, "application/grpc-web") != -1
+	acceptGRPCWeb := sliceutils.Find(acceptedContentTypes, "application/grpc-web") != -1
 	// The standard gRPC client doesn't actually send an `Accept: application/grpc` header, so always assume
 	// the client accepts gRPC _unless_ it explicitly specifies an `application/grpc-web` accept header
 	// WITHOUT an `application/grpc` accept header.
-	acceptGRPC := !acceptGRPCWeb || sliceutils.StringFind(acceptedContentTypes, "application/grpc") != -1
+	acceptGRPC := !acceptGRPCWeb || sliceutils.Find(acceptedContentTypes, "application/grpc") != -1
 
 	// Only consider sending a gRPC response if we are not told to prefer gRPC-Web or the client doesn't support
 	// gRPC-Web.

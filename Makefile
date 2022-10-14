@@ -43,7 +43,6 @@ dev:
 	@echo "+ $@"
 	@go install golang.org/x/tools/cmd/goimports
 	@go install golang.org/x/lint/golint
-	@go install github.com/mauricelam/genny
 
 deps: go.mod go.sum
 	@echo "+ $@"
