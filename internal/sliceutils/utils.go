@@ -1,4 +1,4 @@
-// Copyright (c) 2020 StackRox Inc.
+// Copyright (c) 2022 StackRox Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -14,11 +14,11 @@
 
 package sliceutils
 
-// Clone clones a slice, creating a new slice
+// ShallowClone clones a slice, creating a new slice
 // and copying the contents of the underlying array.
 // If `in` is a nil slice, a nil slice is returned.
 // If `in` is an empty slice, an empty slice is returned.
-func Clone[T any](in []T) []T {
+func ShallowClone[T any](in []T) []T {
 	if in == nil {
 		return nil
 	}

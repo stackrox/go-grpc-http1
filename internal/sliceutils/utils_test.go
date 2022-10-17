@@ -1,4 +1,4 @@
-// Copyright (c) 2020 StackRox Inc.
+// Copyright (c) 2022 StackRox Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -22,7 +22,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestClone(t *testing.T) {
+func TestShallowClone(t *testing.T) {
 	cases := []struct {
 		slice         []string
 		expectedSlice []string
@@ -42,7 +42,7 @@ func TestClone(t *testing.T) {
 	}
 	for _, c := range cases {
 		t.Run(fmt.Sprintf("%s - %s", strings.Join(c.slice, " "), strings.Join(c.expectedSlice, " ")), func(t *testing.T) {
-			assert.Equal(t, c.expectedSlice, Clone(c.slice))
+			assert.Equal(t, c.expectedSlice, ShallowClone(c.slice))
 		})
 	}
 }
