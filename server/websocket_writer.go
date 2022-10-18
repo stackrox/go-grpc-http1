@@ -67,7 +67,7 @@ func (w *wsResponseWriter) WriteHeader(statusCode int) {
 	}
 
 	hdr := w.header
-	w.announcedTrailers = sliceutils.StringClone(hdr["Trailer"])
+	w.announcedTrailers = sliceutils.ShallowClone(hdr["Trailer"])
 	// Trailers will be sent un-announced in non-Trailers-only responses.
 	hdr.Del("Trailer")
 
