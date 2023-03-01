@@ -3,7 +3,7 @@ module golang.stackrox.io/grpc-http1/_integration-tests
 go 1.16
 
 require (
-	github.com/stretchr/testify v1.8.1
+	github.com/stretchr/testify v1.8.2
 	golang.org/x/net v0.7.0
 	golang.stackrox.io/grpc-http1 v0.0.0+incompatible
 	google.golang.org/grpc v1.53.0
