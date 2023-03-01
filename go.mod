@@ -5,7 +5,7 @@ go 1.18
 require (
 	github.com/golang/glog v1.0.0
 	github.com/pkg/errors v0.9.1
-	github.com/stretchr/testify v1.8.1
+	github.com/stretchr/testify v1.8.2
 	golang.org/x/lint v0.0.0-20210508222113-6edffad5e616
 	golang.org/x/net v0.7.0
 	golang.org/x/tools v0.6.0
