@@ -115,7 +115,7 @@ func createTransport(tlsClientConf *tls.Config, forceHTTP2 bool, extraH2ALPNs []
 			TLSClientConfig: tlsClientConf,
 		}
 		if tlsClientConf == nil {
-			transport.DialTLS = func(network, addr string, _ *tls.Config) (net.Conn, error) {
+			transport.DialTLSContext = func(_ context.Context, network, addr string, cfg *tls.Config) (net.Conn, error) {
 				return net.Dial(network, addr)
 			}
 		}
@@ -124,6 +124,7 @@ func createTransport(tlsClientConf *tls.Config, forceHTTP2 bool, extraH2ALPNs []
 
 	transport := &http.Transport{
 		ForceAttemptHTTP2: true,
+		Proxy:             http.ProxyFromEnvironment,
 	}
 
 	if tlsClientConf != nil {
