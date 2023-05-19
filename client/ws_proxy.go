@@ -29,13 +29,14 @@ import (
 
 	"github.com/golang/glog"
 	"github.com/pkg/errors"
+	"google.golang.org/grpc/codes"
+	"nhooyr.io/websocket"
+
 	"golang.stackrox.io/grpc-http1/internal/grpcproto"
 	"golang.stackrox.io/grpc-http1/internal/grpcwebsocket"
 	"golang.stackrox.io/grpc-http1/internal/httputils"
 	"golang.stackrox.io/grpc-http1/internal/pipeconn"
 	"golang.stackrox.io/grpc-http1/internal/size"
-	"google.golang.org/grpc/codes"
-	"nhooyr.io/websocket"
 )
 
 const (
@@ -230,6 +231,9 @@ func (h *http2WebSocketProxy) ServeHTTP(w http.ResponseWriter, req *http.Request
 	url := *req.URL // Copy the value, so we do not overwrite the URL.
 	url.Scheme = scheme
 	url.Host = h.endpoint
+
+	req.Header.Del("Content-Type")
+
 	conn, resp, err := websocket.Dial(req.Context(), url.String(), &websocket.DialOptions{
 		// Add the gRPC headers to the WebSocket handshake request.
 		HTTPHeader:   req.Header,

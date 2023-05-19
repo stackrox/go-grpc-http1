@@ -20,8 +20,9 @@ import (
 	"io"
 
 	"github.com/pkg/errors"
-	"golang.stackrox.io/grpc-http1/internal/grpcproto"
 	"nhooyr.io/websocket"
+
+	"golang.stackrox.io/grpc-http1/internal/grpcproto"
 )
 
 // readerResult stores the output from calls to (*wsReader).conn.Reader

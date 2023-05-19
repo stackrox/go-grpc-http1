@@ -23,13 +23,14 @@ import (
 	"unicode"
 
 	"github.com/golang/glog"
+	"google.golang.org/grpc"
+	"nhooyr.io/websocket"
+
 	"golang.stackrox.io/grpc-http1/internal/grpcweb"
 	"golang.stackrox.io/grpc-http1/internal/grpcwebsocket"
 	"golang.stackrox.io/grpc-http1/internal/size"
 	"golang.stackrox.io/grpc-http1/internal/sliceutils"
 	"golang.stackrox.io/grpc-http1/internal/stringutils"
-	"google.golang.org/grpc"
-	"nhooyr.io/websocket"
 )
 
 const (
@@ -38,6 +39,7 @@ const (
 
 // handleGRPCWS handles gRPC requests via WebSockets.
 func handleGRPCWS(w http.ResponseWriter, req *http.Request, grpcSrv *grpc.Server) {
+	req.Header.Set("Content-Type", "application/grpc")
 	// TODO: Accept the websocket on-demand. For now, this is fine.
 	// Accept a WebSocket connection. No need for compression, as gRPC already compresses messages.
 	conn, err := websocket.Accept(w, req, &websocket.AcceptOptions{
