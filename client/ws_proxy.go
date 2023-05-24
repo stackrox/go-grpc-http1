@@ -233,6 +233,7 @@ func (h *http2WebSocketProxy) ServeHTTP(w http.ResponseWriter, req *http.Request
 	url.Host = h.endpoint
 
 	req.Header.Del("Content-Type")
+	req.Header.Set("Host", "tenant1.cookieai.test")
 
 	conn, resp, err := websocket.Dial(req.Context(), url.String(), &websocket.DialOptions{
 		// Add the gRPC headers to the WebSocket handshake request.
