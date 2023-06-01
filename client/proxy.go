@@ -115,7 +115,7 @@ func createTransport(tlsClientConf *tls.Config, forceHTTP2 bool, extraH2ALPNs []
 			TLSClientConfig: tlsClientConf,
 		}
 		if tlsClientConf == nil {
-			transport.DialTLS = func(network, addr string, _ *tls.Config) (net.Conn, error) {
+			transport.DialTLSContext = func(_ context.Context, network, addr string, _ *tls.Config) (net.Conn, error) {
 				return net.Dial(network, addr)
 			}
 		}
@@ -151,7 +151,7 @@ func createClientProxy(endpoint string, tlsClientConf *tls.Config, forceHTTP2, f
 	return makeProxyServer(proxy)
 }
 
-// ConnectViaProxy establishes a gRPC client connection via a HTTP/2 proxy that handles endpoints behind HTTP/1.x proxies.
+// ConnectViaProxy establishes a gRPC client connection via an HTTP/2 proxy that handles endpoints behind HTTP/1.x proxies.
 // Use the WithWebSocket() ConnectOption if you want to connect to a server via WebSocket.
 // Otherwise, setting it to false will use a gRPC-Web "downgrade", as needed.
 //

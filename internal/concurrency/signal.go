@@ -19,6 +19,14 @@ import (
 	"unsafe"
 )
 
+var (
+	closedCh = func() chan struct{} {
+		ch := make(chan struct{})
+		close(ch)
+		return ch
+	}()
+)
+
 // Signal implements a signalling facility. Unlike sync.Cond, it is based on channels and can hence be used
 // in `select` statements.
 // There are two ways to instantiate a Signal. The preferred way is by calling `NewSignal()`, which will return a signal

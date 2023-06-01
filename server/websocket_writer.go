@@ -86,7 +86,7 @@ func (w *wsResponseWriter) WriteHeader(statusCode int) {
 	w.headerWritten = true
 }
 
-// Flush is a No-Op since the underlying writer is a io.PipeWriter,
+// Flush is a No-Op since the underlying writer is an io.PipeWriter,
 // which does no internal buffering.
 func (w *wsResponseWriter) Flush() {}
 
