@@ -124,6 +124,7 @@ func createTransport(tlsClientConf *tls.Config, forceHTTP2 bool, extraH2ALPNs []
 
 	transport := &http.Transport{
 		ForceAttemptHTTP2: true,
+		Proxy:             http.ProxyFromEnvironment,
 	}
 
 	if tlsClientConf != nil {
