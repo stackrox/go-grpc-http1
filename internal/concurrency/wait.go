@@ -16,12 +16,6 @@ package concurrency
 
 import "time"
 
-// Never satisfies the Waitable interface, but will never be signaled
-// Waiting will block indefinitely
-func Never() WaitableChan {
-	return WaitableChan(nil)
-}
-
 // Wait waits indefinitely until the condition represented by the given Waitable is fulfilled.
 func Wait(w Waitable) {
 	<-w.Done()
@@ -52,25 +46,6 @@ func WaitWithTimeout(w Waitable, timeout time.Duration) bool {
 		}
 		return true
 	case <-t.C:
-		return false
-	}
-}
-
-// WaitWithDeadline waits for the given Waitable until a specified deadline. It returns false if the deadline expired
-// before the condition was fulfilled, true otherwise.
-func WaitWithDeadline(w Waitable, deadline time.Time) bool {
-	timeout := time.Until(deadline)
-	return WaitWithTimeout(w, timeout)
-}
-
-// WaitInContext waits for the given Waitable until a `parentContext` is done. Note that despite its name,
-// `parentContext` can be any waitable, not just a context.
-// It returns false if the parentContext is done first, true otherwise.
-func WaitInContext(w Waitable, parentContext Waitable) bool {
-	select {
-	case <-w.Done():
-		return true
-	case <-parentContext.Done():
 		return false
 	}
 }

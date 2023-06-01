@@ -21,6 +21,4 @@ const (
 	KB = 1024 * B
 	// MB = megabyte
 	MB = 1024 * KB
-	// GB = gigabyte
-	GB = 1024 * MB
 )
