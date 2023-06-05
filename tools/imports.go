@@ -15,7 +15,7 @@
 //go:build tools
 // +build tools
 
-package main
+package tools
 
 import (
 	_ "golang.org/x/lint/golint"

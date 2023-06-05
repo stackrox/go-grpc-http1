@@ -16,6 +16,9 @@ export GO111MODULE := on
 export GOBIN := $(CURDIR)/.gobin
 export PATH := $(GOBIN):$(PATH)
 
+# Set to empty string to echo some command lines which are hidden by default.
+SILENT ?= @
+
 TESTFLAGS := -p 4 -race
 
 ### STYLE
@@ -25,51 +28,51 @@ style: imports lint vet
 
 .PHONY: imports
 imports: dev deps
-	@echo "+ $@"
-	@git ls-files -- '*.go' | xargs goimports -l -w
+	$(SILENT)echo "+ $@"
+	$(SILENT)git ls-files -- '*.go' | xargs goimports -l -w
 
 .PHONY: lint
 lint: dev deps
-	@echo "+ $@"
-	@echo $(sort $(dir $(shell git ls-files -- '*.go'))) | xargs -n 1 golint
+	$(SILENT)echo "+ $@"
+	$(SILENT)echo $(sort $(dir $(shell git ls-files -- '*.go'))) | xargs -n 1 golint
 
 .PHONY: vet
 vet: dev deps
-	@echo "+ $@"
-	@go vet ./...
+	$(SILENT)echo "+ $@"
+	$(SILENT)go vet ./...
 
 .PHONY: dev
 dev:
-	@echo "+ $@"
-	@go install golang.org/x/tools/cmd/goimports
-	@go install golang.org/x/lint/golint
+	$(SILENT)echo "+ $@"
+	$(SILENT)cd tools/ && go install golang.org/x/tools/cmd/goimports
+	$(SILENT)cd tools/ && go install golang.org/x/lint/golint
 
 deps: go.mod go.sum
-	@echo "+ $@"
-	@go mod tidy
-	@$(MAKE) download-deps
-	@touch deps
+	$(SILENT)echo "+ $@"
+	$(SILENT)go mod tidy
+	$(SILENT)$(MAKE) download-deps
+	$(SILENT)touch deps
 
 .PHONY: download-deps
 download-deps:
-	@echo "+ $@"
-	@go mod download
+	$(SILENT)echo "+ $@"
+	$(SILENT)go mod download
 
 ### SOURCE GENERATION
 
 .PHONY: generate-go-srcs
 generate-go-srcs: dev
-	@echo "+ $@"
-	@go generate ./...
+	$(SILENT)echo "+ $@"
+	$(SILENT)go generate ./...
 
 ### TESTS
 
 .PHONY: unit-tests
 unit-tests: deps
-	@echo "+ $@"
-	@go test $(TESTFLAGS) ./...
+	$(SILENT)echo "+ $@"
+	$(SILENT)go test $(TESTFLAGS) ./...
 
 .PHONY: integration-tests
 integration-tests: deps
-	@echo "+ $@"
-	@cd _integration-tests ; go test -count=1 -p 4 .
+	$(SILENT)echo "+ $@"
+	$(SILENT)cd _integration-tests ; go test -count=1 -p 4 .
