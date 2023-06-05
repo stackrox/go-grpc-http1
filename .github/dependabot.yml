@@ -5,7 +5,7 @@
 
 version: 2
 updates:
-  - package-ecosystem: 'gomod'
+  - package-ecosystem: 'github-actions'
     directory: '/'
     schedule:
       interval: 'weekly'
@@ -15,7 +15,23 @@ updates:
       - 'RTann'
 
   - package-ecosystem: 'gomod'
+    directory: '/'
+    schedule:
+      interval: 'weekly'
+      day: 'wednesday'
+    open-pull-requests-limit: 3
+    reviewers:
+      - 'RTann'
+  - package-ecosystem: 'gomod'
     directory: '/_integration-tests'
+    schedule:
+      interval: 'weekly'
+      day: 'wednesday'
+    open-pull-requests-limit: 3
+    reviewers:
+      - 'RTann'
+  - package-ecosystem: 'gomod'
+    directory: '/tools'
     schedule:
       interval: 'weekly'
       day: 'wednesday'
