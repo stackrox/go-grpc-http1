@@ -4,7 +4,7 @@ go 1.18
 
 require (
 	github.com/stretchr/testify v1.8.4
-	golang.org/x/net v0.12.0
+	golang.org/x/net v0.13.0
 	golang.stackrox.io/grpc-http1 v0.0.0+incompatible
 	google.golang.org/grpc v1.57.0
 	google.golang.org/grpc/examples v0.0.0-20230602173802-c9d3ea567325
