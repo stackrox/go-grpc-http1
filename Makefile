@@ -53,6 +53,13 @@ deps: go.mod go.sum
 	$(SILENT)$(MAKE) download-deps
 	$(SILENT)touch deps
 
+.PHONY: integration-deps
+integration-deps:
+	$(SILENT)echo "+ $@"
+	$(SILENT)cd "_integration-tests";\
+		go mod tidy;\
+		go mod download
+
 .PHONY: download-deps
 download-deps:
 	$(SILENT)echo "+ $@"
@@ -73,6 +80,6 @@ unit-tests: deps
 	$(SILENT)go test $(TESTFLAGS) ./...
 
 .PHONY: integration-tests
-integration-tests: deps
+integration-tests: integration-deps
 	$(SILENT)echo "+ $@"
 	$(SILENT)cd _integration-tests ; go test -count=1 -p 4 .

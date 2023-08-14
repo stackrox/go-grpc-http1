@@ -1,6 +1,6 @@
 module golang.stackrox.io/grpc-http1/_integration-tests
 
-go 1.18
+go 1.19
 
 require (
 	github.com/stretchr/testify v1.8.4
@@ -12,7 +12,7 @@ require (
 
 require (
 	github.com/davecgh/go-spew v1.1.1 // indirect
-	github.com/golang/glog v1.1.0 // indirect
+	github.com/golang/glog v1.1.2 // indirect
 	github.com/golang/protobuf v1.5.3 // indirect
 	github.com/klauspost/compress v1.10.3 // indirect
 	github.com/pkg/errors v0.9.1 // indirect
