@@ -1,6 +1,6 @@
 module golang.stackrox.io/grpc-http1
 
-go 1.18
+go 1.19
 
 require (
 	github.com/golang/glog v1.1.2
