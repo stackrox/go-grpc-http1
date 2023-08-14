@@ -27,11 +27,7 @@ jobs:
             echo "*** Files are not formatted properly. See the above diff for more info."
             exit 1
           fi
-          
-      - name: Run go mod tidy
-        run: |
-          go mod tidy
-          
+
       - name: Unit tests
         run: |
           make unit-tests
