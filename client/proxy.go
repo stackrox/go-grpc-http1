@@ -79,7 +79,7 @@ func writeError(w http.ResponseWriter, err error) {
 	w.Header().Set("Grpc-Message", grpcproto.EncodeGrpcMessage(errMsg))
 }
 
-func createReverseProxy(endpoint string, transport http.RoundTripper, insecure, forceDowngrade bool) *httputil.ReverseProxy {
+func createReverseProxy(endpoint string, transport http.RoundTripper, insecure, forceDowngrade bool, contentType string) *httputil.ReverseProxy {
 	scheme := "https"
 	if insecure {
 		scheme = "http"
@@ -91,6 +91,12 @@ func createReverseProxy(endpoint string, transport http.RoundTripper, insecure, 
 				req.Header.Del("TE")
 				req.Header.Del("Accept")
 				req.Header.Add(grpcweb.GRPCWebOnlyHeader, "true")
+
+				if len(contentType) > 0 {
+					// remove old content type (e.g., application/grpc), and set overridden content type.
+					req.Header.Del("Content-Type")
+					req.Header.Add("Content-Type", contentType)
+				}
 			} else {
 				req.Header.Add("Accept", "application/grpc")
 			}
@@ -142,12 +148,12 @@ func createTransport(tlsClientConf *tls.Config, forceHTTP2 bool, extraH2ALPNs []
 	return transport, nil
 }
 
-func createClientProxy(endpoint string, tlsClientConf *tls.Config, forceHTTP2, forceDowngrade bool, extraH2ALPNs []string) (*http.Server, pipeconn.DialContextFunc, error) {
+func createClientProxy(endpoint string, tlsClientConf *tls.Config, forceHTTP2, forceDowngrade bool, extraH2ALPNs []string, contentType string) (*http.Server, pipeconn.DialContextFunc, error) {
 	transport, err := createTransport(tlsClientConf, forceHTTP2, extraH2ALPNs)
 	if err != nil {
 		return nil, nil, errors.Wrap(err, "creating transport")
 	}
-	proxy := createReverseProxy(endpoint, transport, tlsClientConf == nil, forceDowngrade)
+	proxy := createReverseProxy(endpoint, transport, tlsClientConf == nil, forceDowngrade, contentType)
 	return makeProxyServer(proxy)
 }
 
@@ -171,7 +177,7 @@ func ConnectViaProxy(ctx context.Context, endpoint string, tlsClientConf *tls.Co
 	if connectOpts.useWebSocket {
 		proxy, dialCtx, err = createClientWSProxy(endpoint, tlsClientConf)
 	} else {
-		proxy, dialCtx, err = createClientProxy(endpoint, tlsClientConf, connectOpts.forceHTTP2, connectOpts.forceDowngrade, connectOpts.extraH2ALPNs)
+		proxy, dialCtx, err = createClientProxy(endpoint, tlsClientConf, connectOpts.forceHTTP2, connectOpts.forceDowngrade, connectOpts.extraH2ALPNs, connectOpts.contentType)
 	}
 
 	if err != nil {

@@ -22,6 +22,7 @@ type connectOptions struct {
 	forceHTTP2     bool
 	forceDowngrade bool
 	useWebSocket   bool
+	contentType    string
 }
 
 // ConnectOption is an option that can be passed to the `ConnectViaProxy` method.
@@ -66,6 +67,12 @@ func ForceDowngrade(force bool) ConnectOption {
 	return forceDowngradeOption(force)
 }
 
+// OverriddenContentType returns a connection option that instructs the
+// client to use a custom content type for sending requests to the server.
+func OverriddenContentType(contentType string) ConnectOption {
+	return overriddenContentType(contentType)
+}
+
 type dialOptsOption []grpc.DialOption
 
 func (o dialOptsOption) apply(opts *connectOptions) {
@@ -94,4 +101,10 @@ type forceDowngradeOption bool
 
 func (o forceDowngradeOption) apply(opts *connectOptions) {
 	opts.forceDowngrade = bool(o)
+}
+
+type overriddenContentType string
+
+func (o overriddenContentType) apply(opts *connectOptions) {
+	opts.contentType = string(o)
 }
