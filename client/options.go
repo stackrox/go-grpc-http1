@@ -67,10 +67,10 @@ func ForceDowngrade(force bool) ConnectOption {
 	return forceDowngradeOption(force)
 }
 
-// OverriddenContentType returns a connection option that instructs the
+// WithContentType returns a connection option that instructs the
 // client to use a custom content type for sending requests to the server.
-func OverriddenContentType(contentType string) ConnectOption {
-	return overriddenContentType(contentType)
+func WithContentType(contentType string) ConnectOption {
+	return contentTypeOption(contentType)
 }
 
 type dialOptsOption []grpc.DialOption
@@ -103,8 +103,8 @@ func (o forceDowngradeOption) apply(opts *connectOptions) {
 	opts.forceDowngrade = bool(o)
 }
 
-type overriddenContentType string
+type contentTypeOption string
 
-func (o overriddenContentType) apply(opts *connectOptions) {
+func (o contentTypeOption) apply(opts *connectOptions) {
 	opts.contentType = string(o)
 }

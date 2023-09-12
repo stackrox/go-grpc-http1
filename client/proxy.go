@@ -91,16 +91,18 @@ func createReverseProxy(endpoint string, transport http.RoundTripper, insecure, 
 				req.Header.Del("TE")
 				req.Header.Del("Accept")
 				req.Header.Add(grpcweb.GRPCWebOnlyHeader, "true")
-
-				if len(contentType) > 0 {
-					// remove old content type (e.g., application/grpc), and set overridden content type.
-					req.Header.Del("Content-Type")
-					req.Header.Add("Content-Type", contentType)
-				}
 			} else {
 				req.Header.Add("Accept", "application/grpc")
 			}
 			req.Header.Add("Accept", "application/grpc-web")
+
+			if len(contentType) > 0 {
+				// Replacing old content type (e.g., application/grpc), to an overridden content type.
+				// Without removing old header, some gRPC-Web servers will not work,
+				// because an HTTP client will send both old and new header values.
+				req.Header.Set("Content-Type", contentType)
+			}
+
 			req.URL.Scheme = scheme
 			req.URL.Host = endpoint
 		},
