@@ -148,6 +148,10 @@ func handleGRPCWeb(w http.ResponseWriter, req *http.Request, validPaths map[stri
 	if err := finalize(); err != nil {
 		glog.Errorf("Error sending trailers in downgraded gRPC web response: %v", err)
 	}
+	var a = 5
+	if a == 5 {
+		println("Q")
+	}
 }
 
 // CreateDowngradingHandler takes a gRPC server and a plain HTTP handler, and returns an HTTP handler that has the
@@ -182,14 +186,24 @@ func CreateDowngradingHandler(grpcSrv *grpc.Server, httpHandler http.Handler, op
 			return
 		}
 
-		if contentType, _ := stringutils.Split2(req.Header.Get("Content-Type"), "+"); contentType != "application/grpc" {
+		if !isContentTypeValid(req.Header.Get("Content-Type")) {
 			// Non-gRPC request to the same port.
 			httpHandler.ServeHTTP(w, req)
 			return
 		}
 
+		// explicitly set application/grpc content type,
+		// because underlying grpc library supports only it.
+		// https://github.com/grpc/grpc-go/blob/9deee9ba5f5b654d38c737c701181dceebb57e44/internal/grpcutil/method.go#L61
+		req.Header.Set("Content-Type", "application/grpc")
+
 		handleGRPCWeb(w, req, validGRPCWebPaths, grpcSrv, &serverOpts)
 	})
+}
+
+func isContentTypeValid(contentType string) bool {
+	ct, _ := stringutils.Split2(contentType, "+")
+	return ct == "application/grpc" || ct == "application/grpc-web"
 }
 
 func isWebSocketUpgrade(header http.Header) (bool, error) {

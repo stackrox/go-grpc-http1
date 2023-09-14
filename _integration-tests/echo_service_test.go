@@ -192,6 +192,39 @@ func testWithEchoService(t *testing.T, serverPreferGRPCWeb bool) {
 			expectClientStreamOK:    false,
 			expectBidiStreamOK:      false,
 		},
+		{
+			targetID:                "downgrading-grpc",
+			behindHTTP1ReverseProxy: false,
+			useProxy:                true,
+			forceDowngrade:          true,
+			customContentType:       "application/grpc-web",
+			expectUnaryOK:           true,
+			expectServerStreamOK:    true,
+			expectClientStreamOK:    false,
+			expectBidiStreamOK:      false,
+		},
+		{
+			targetID:                "downgrading-grpc",
+			behindHTTP1ReverseProxy: true,
+			useProxy:                true,
+			forceDowngrade:          true,
+			customContentType:       "application/grpc-web",
+			expectUnaryOK:           true,
+			expectServerStreamOK:    true,
+			expectClientStreamOK:    false,
+			expectBidiStreamOK:      false,
+		},
+		{
+			targetID:                "downgrading-grpc",
+			behindHTTP1ReverseProxy: true,
+			useProxy:                true,
+			forceDowngrade:          false,
+			customContentType:       "application/grpc-web",
+			expectUnaryOK:           true,
+			expectServerStreamOK:    true,
+			expectClientStreamOK:    false,
+			expectBidiStreamOK:      false,
+		},
 	}
 
 	for _, c := range cases {
@@ -317,6 +350,7 @@ type testCase struct {
 	useProxy                bool
 	useWebSocket            bool
 	forceDowngrade          bool
+	customContentType       string
 
 	expectUnaryOK        bool
 	expectClientStreamOK bool
@@ -342,6 +376,10 @@ func (c *testCase) Name() string {
 		sb.WriteString("-via-client-proxy")
 	} else {
 		sb.WriteString("-direct")
+	}
+
+	if len(c.customContentType) > 0 {
+		sb.WriteString("-custom-content-type")
 	}
 	return sb.String()
 }
@@ -380,6 +418,10 @@ func (c *testCase) Run(t *testing.T, cfg *testConfig) {
 			opts = append(opts, client.ForceHTTP2())
 		}
 		opts = append(opts, client.UseWebSocket(c.useWebSocket), client.ForceDowngrade(c.forceDowngrade))
+
+		if len(c.customContentType) > 0 {
+			opts = append(opts, client.WithContentType(c.customContentType))
+		}
 
 		cc, err = client.ConnectViaProxy(ctx, targetAddr, nil, opts...)
 	} else {
