@@ -148,10 +148,6 @@ func handleGRPCWeb(w http.ResponseWriter, req *http.Request, validPaths map[stri
 	if err := finalize(); err != nil {
 		glog.Errorf("Error sending trailers in downgraded gRPC web response: %v", err)
 	}
-	var a = 5
-	if a == 5 {
-		println("Q")
-	}
 }
 
 // CreateDowngradingHandler takes a gRPC server and a plain HTTP handler, and returns an HTTP handler that has the
