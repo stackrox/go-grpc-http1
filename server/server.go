@@ -182,14 +182,23 @@ func CreateDowngradingHandler(grpcSrv *grpc.Server, httpHandler http.Handler, op
 			return
 		}
 
-		if contentType, _ := stringutils.Split2(req.Header.Get("Content-Type"), "+"); contentType != "application/grpc" {
+		if !isContentTypeValid(req.Header.Get("Content-Type")) {
 			// Non-gRPC request to the same port.
 			httpHandler.ServeHTTP(w, req)
 			return
 		}
 
+		// Internally content type must be application/grpc,
+		// See: https://github.com/grpc/grpc-go/blob/9deee9b/internal/grpcutil/method.go#L61
+		req.Header.Set("Content-Type", "application/grpc")
+
 		handleGRPCWeb(w, req, validGRPCWebPaths, grpcSrv, &serverOpts)
 	})
+}
+
+func isContentTypeValid(contentType string) bool {
+	ct, _ := stringutils.Split2(contentType, "+")
+	return ct == "application/grpc" || ct == "application/grpc-web"
 }
 
 func isWebSocketUpgrade(header http.Header) (bool, error) {
