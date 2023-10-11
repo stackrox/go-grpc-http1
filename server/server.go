@@ -188,9 +188,8 @@ func CreateDowngradingHandler(grpcSrv *grpc.Server, httpHandler http.Handler, op
 			return
 		}
 
-		// explicitly set application/grpc content type,
-		// because underlying grpc library supports only it.
-		// https://github.com/grpc/grpc-go/blob/9deee9ba5f5b654d38c737c701181dceebb57e44/internal/grpcutil/method.go#L61
+		// Internally content type must be application/grpc,
+		// See: https://github.com/grpc/grpc-go/blob/9deee9b/internal/grpcutil/method.go#L61
 		req.Header.Set("Content-Type", "application/grpc")
 
 		handleGRPCWeb(w, req, validGRPCWebPaths, grpcSrv, &serverOpts)
