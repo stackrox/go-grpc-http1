@@ -225,6 +225,17 @@ func testWithEchoService(t *testing.T, serverPreferGRPCWeb bool) {
 			expectClientStreamOK:    false,
 			expectBidiStreamOK:      false,
 		},
+		{
+			targetID:                "downgrading-grpc",
+			behindHTTP1ReverseProxy: true,
+			useProxy:                true,
+			forceDowngrade:          true,
+			customContentType:       "dummy",
+			expectUnaryOK:           false,
+			expectServerStreamOK:    false,
+			expectClientStreamOK:    false,
+			expectBidiStreamOK:      false,
+		},
 	}
 
 	for _, c := range cases {
