@@ -8,7 +8,7 @@ require (
 	github.com/stretchr/testify v1.8.4
 	golang.org/x/net v0.17.0
 	google.golang.org/grpc v1.59.0
-	nhooyr.io/websocket v1.8.9
+	nhooyr.io/websocket v1.8.10
 )
 
 require (
