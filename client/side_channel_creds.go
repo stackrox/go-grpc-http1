@@ -19,6 +19,7 @@ import (
 	"net"
 	"sync"
 
+	np "golang.org/x/net/proxy"
 	"google.golang.org/grpc/credentials"
 )
 
@@ -47,7 +48,7 @@ func (c *sideChannelCreds) ClientHandshake(ctx context.Context, authority string
 		return rawConn, c.authInfo, nil
 	}
 
-	sideChannelConn, err := (&net.Dialer{}).DialContext(ctx, "tcp", c.endpoint)
+	sideChannelConn, err := np.Dial(ctx, "tcp", c.endpoint)
 	if err != nil {
 		return nil, nil, err
 	}
