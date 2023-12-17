@@ -299,6 +299,7 @@ func createClientWSProxy(endpoint string, tlsClientConf *tls.Config) (*http.Serv
 		httpClient: &http.Client{
 			Transport: &http.Transport{
 				TLSClientConfig: tlsClientConf,
+				Proxy:           http.ProxyFromEnvironment,
 			},
 		},
 	}
