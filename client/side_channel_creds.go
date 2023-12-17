@@ -23,7 +23,6 @@ import (
 	"net/url"
 	"sync"
 
-	"golang.org/x/net/proxy"
 	"google.golang.org/grpc/credentials"
 )
 
@@ -52,7 +51,24 @@ func (c *sideChannelCreds) ClientHandshake(ctx context.Context, authority string
 		return rawConn, c.authInfo, nil
 	}
 
-	sideChannelConn, err := proxy.Dial(ctx, "tcp", c.endpoint)
+	// net dial via HTTP CONNECT if HTTP_PROXY, HTTPS_PROXY, NO_PROXY env
+	// require that c.endpoint must be go through proxy
+	destReq, err := http.NewRequest("GET", "http://"+c.endpoint, nil)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to determine proxy URL for %s: %w", c.endpoint, err)
+	}
+	proxyURL, err := http.ProxyFromEnvironment(destReq)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to determine proxy URL for %s: %w", c.endpoint, err)
+	}
+
+	var sideChannelConn net.Conn
+	if proxyURL != nil {
+		sideChannelConn, err = dialViaCONNECT(ctx, c.endpoint, proxyURL)
+	} else {
+		sideChannelConn, err = (&net.Dialer{}).DialContext(ctx, "tcp", c.endpoint)
+	}
+
 	if err != nil {
 		return nil, nil, err
 	}
@@ -67,86 +83,29 @@ func (c *sideChannelCreds) ClientHandshake(ctx context.Context, authority string
 	return rawConn, authInfo, nil
 }
 
-// httpProxy is a HTTP/HTTPS connect proxy.
-type httpProxy struct {
-	host     string
-	haveAuth bool
-	username string
-	password string
-	forward  proxy.Dialer
-}
-
-func newHTTPProxy(uri *url.URL, forward proxy.Dialer) (proxy.Dialer, error) {
-	s := new(httpProxy)
-	s.host = uri.Host
-	s.forward = forward
-	if uri.User != nil {
-		s.haveAuth = true
-		s.username = uri.User.Username()
-		s.password, _ = uri.User.Password()
+func dialViaCONNECT(ctx context.Context, addr string, proxy *url.URL) (net.Conn, error) {
+	proxyAddr := proxy.Host
+	if proxy.Port() == "" {
+		proxyAddr = net.JoinHostPort(proxyAddr, "3128")
 	}
-
-	return s, nil
-}
-
-func (s *httpProxy) Dial(network, addr string) (net.Conn, error) {
-	// Dial and create the https client connection.
-	c, err := s.forward.Dial("tcp", s.host)
+	c, err := (&net.Dialer{}).DialContext(ctx, "tcp", proxyAddr)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to dial proxy %q: %w", proxyAddr, err)
 	}
-
-	// HACK. http.ReadRequest also does this.
-	reqURL, err := url.Parse("http://" + addr)
+	fmt.Fprintf(c, "CONNECT %s HTTP/1.1\r\nHost: %s\r\n\r\n", addr, proxy.Hostname())
+	br := bufio.NewReader(c)
+	res, err := http.ReadResponse(br, nil)
 	if err != nil {
-		c.Close()
-		return nil, err
+		return nil, fmt.Errorf("reading HTTP response from CONNECT to %s via proxy %s failed: %v",
+			addr, proxyAddr, err)
 	}
-	reqURL.Scheme = ""
-
-	req, err := http.NewRequest("CONNECT", reqURL.String(), nil)
-	if err != nil {
-		c.Close()
-		return nil, err
-	}
-	req.Close = false
-	if s.haveAuth {
-		req.SetBasicAuth(s.username, s.password)
-	}
-	// req.Header.Set("User-Agent", "Powerby Gota")
-
-	err = req.Write(c)
-	if err != nil {
-		c.Close()
-		return nil, err
+	if res.StatusCode != 200 {
+		return nil, fmt.Errorf("proxy error from %s while dialing %s: %v", proxyAddr, addr, res.Status)
 	}
 
-	resp, err := http.ReadResponse(bufio.NewReader(c), req)
-	if err != nil {
-		// TODO close resp body ?
-		resp.Body.Close()
-		c.Close()
-		return nil, err
+	if br.Buffered() > 0 {
+		return nil, fmt.Errorf("unexpected %d bytes of buffered data from CONNECT proxy %q",
+			br.Buffered(), proxyAddr)
 	}
-	resp.Body.Close()
-	if resp.StatusCode != 200 {
-		c.Close()
-		err = fmt.Errorf("Connect server using proxy error, StatusCode [%d]", resp.StatusCode)
-		return nil, err
-	}
-
 	return c, nil
-}
-
-func FromURL(u *url.URL, forward proxy.Dialer) (proxy.Dialer, error) {
-	return proxy.FromURL(u, forward)
-}
-
-func FromEnvironment() proxy.Dialer {
-	return proxy.FromEnvironment()
-}
-
-func init() {
-	proxy.RegisterDialerType("http", newHTTPProxy)
-	proxy.RegisterDialerType("https", newHTTPProxy)
 }
