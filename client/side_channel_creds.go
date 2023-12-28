@@ -51,8 +51,7 @@ func (c *sideChannelCreds) ClientHandshake(ctx context.Context, authority string
 		return rawConn, c.authInfo, nil
 	}
 
-	// net dial via HTTP CONNECT if HTTP_PROXY, HTTPS_PROXY, NO_PROXY env
-	// require that c.endpoint must be go through proxy
+	// check if c.endpoint is reached via proxy
 	destReq, err := http.NewRequest("GET", "http://"+c.endpoint, nil)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to determine proxy URL for %s: %w", c.endpoint, err)
@@ -64,9 +63,10 @@ func (c *sideChannelCreds) ClientHandshake(ctx context.Context, authority string
 
 	var sideChannelConn net.Conn
 	if proxyURL != nil {
+		// net dial via HTTP CONNECT tunnel if using proxy
 		sideChannelConn, err = dialViaCONNECT(ctx, c.endpoint, proxyURL)
 	} else {
-		sideChannelConn, err = (&net.Dialer{}).DialContext(ctx, "tcp", c.endpoint)
+		sideChannelConn, err = new(net.Dialer).DialContext(ctx, "tcp", c.endpoint)
 	}
 
 	if err != nil {
@@ -83,29 +83,27 @@ func (c *sideChannelCreds) ClientHandshake(ctx context.Context, authority string
 	return rawConn, authInfo, nil
 }
 
+// dialViaCONNECT tunnels a tcp connection to addr through proxy using HTTP CONNECT
 func dialViaCONNECT(ctx context.Context, addr string, proxy *url.URL) (net.Conn, error) {
 	proxyAddr := proxy.Host
 	if proxy.Port() == "" {
-		proxyAddr = net.JoinHostPort(proxyAddr, "3128")
+		proxyAddr = net.JoinHostPort(proxyAddr, "80")
 	}
-	c, err := (&net.Dialer{}).DialContext(ctx, "tcp", proxyAddr)
+	conn, err := new(net.Dialer).DialContext(ctx, "tcp", proxyAddr)
 	if err != nil {
-		return nil, fmt.Errorf("failed to dial proxy %q: %w", proxyAddr, err)
+		return nil, fmt.Errorf("failed to dial proxy %s: %w", proxyAddr, err)
 	}
-	fmt.Fprintf(c, "CONNECT %s HTTP/1.1\r\nHost: %s\r\n\r\n", addr, proxy.Hostname())
-	br := bufio.NewReader(c)
-	res, err := http.ReadResponse(br, nil)
+	fmt.Fprintf(conn, "CONNECT %s HTTP/1.1\r\nHost: %s\r\n\r\n", addr, proxy.Hostname())
+	rr := bufio.NewReader(conn)
+	res, err := http.ReadResponse(rr, nil)
 	if err != nil {
-		return nil, fmt.Errorf("reading HTTP response from CONNECT to %s via proxy %s failed: %v",
-			addr, proxyAddr, err)
+		return nil, fmt.Errorf("failed to read response from HTTP CONNECT to %s via proxy %s: %w", addr, proxyAddr, err)
 	}
-	if res.StatusCode != 200 {
-		return nil, fmt.Errorf("proxy error from %s while dialing %s: %v", proxyAddr, addr, res.Status)
+	if res.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("failed to dial %s via %s. response status: %v", addr, proxyAddr, res.Status)
 	}
-
-	if br.Buffered() > 0 {
-		return nil, fmt.Errorf("unexpected %d bytes of buffered data from CONNECT proxy %q",
-			br.Buffered(), proxyAddr)
+	if rr.Buffered() > 0 {
+		return nil, fmt.Errorf("CONNECT response from %s resulted in %d bytes of unexpected data", proxyAddr, rr.Buffered())
 	}
-	return c, nil
+	return conn, nil
 }
