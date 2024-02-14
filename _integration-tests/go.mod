@@ -4,7 +4,7 @@ go 1.19
 
 require (
 	github.com/stretchr/testify v1.8.4
-	golang.org/x/net v0.20.0
+	golang.org/x/net v0.21.0
 	golang.stackrox.io/grpc-http1 v0.0.0+incompatible
 	google.golang.org/grpc v1.61.1
 	google.golang.org/grpc/examples v0.0.0-20230602173802-c9d3ea567325
@@ -16,7 +16,7 @@ require (
 	github.com/golang/protobuf v1.5.3 // indirect
 	github.com/pkg/errors v0.9.1 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
-	golang.org/x/sys v0.16.0 // indirect
+	golang.org/x/sys v0.17.0 // indirect
 	golang.org/x/text v0.14.0 // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20231106174013-bbf56f31fb17 // indirect
 	google.golang.org/protobuf v1.31.0 // indirect
