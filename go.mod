@@ -7,7 +7,7 @@ require (
 	github.com/pkg/errors v0.9.1
 	github.com/stretchr/testify v1.8.4
 	golang.org/x/net v0.20.0
-	google.golang.org/grpc v1.61.0
+	google.golang.org/grpc v1.61.1
 	nhooyr.io/websocket v1.8.10
 )
 
