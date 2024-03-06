@@ -23,7 +23,7 @@ when accessing it via a reverse proxy not supporting HTTP/2.
 <tr><td>gRPC-WebSocket client mode</td><td>:x:</td><td>:x:</td><td>:white_check_mark:</td><td>:white_check_mark:</td></tr>
 </table>
 
-The (:white_check_mark:) for the gRPC-Web downgrading client indicates a subset of gRPC calls will be possible, but not
+The ( :white_check_mark: ) for the gRPC-Web downgrading client indicates a subset of gRPC calls will be possible, but not
 all. These include all calls that do not rely on client-side streaming (i.e., all unary and server-streaming calls).
 
 As you can see, when using the client in gRPC-Web downgrade mode, it is possible to instrument the client **or** the server without any (functional) regressions - there
