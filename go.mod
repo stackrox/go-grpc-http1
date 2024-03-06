@@ -5,7 +5,7 @@ go 1.19
 require (
 	github.com/golang/glog v1.2.0
 	github.com/pkg/errors v0.9.1
-	github.com/stretchr/testify v1.8.4
+	github.com/stretchr/testify v1.9.0
 	golang.org/x/net v0.21.0
 	google.golang.org/grpc v1.62.0
 	nhooyr.io/websocket v1.8.10
