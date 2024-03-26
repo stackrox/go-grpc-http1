@@ -1,7 +1,8 @@
 package server
 
 type options struct {
-	preferGRPCWeb bool
+	preferGRPCWeb  bool
+	genericMethods bool
 }
 
 // Option is an object that controls the behavior of the downgrading gRPC server.
@@ -20,5 +21,11 @@ func (f optionFunc) apply(o *options) {
 func PreferGRPCWeb(prefer bool) Option {
 	return optionFunc(func(o *options) {
 		o.preferGRPCWeb = prefer
+	})
+}
+
+func WithGenericMethods() Option {
+	return optionFunc(func(o *options) {
+		o.genericMethods = true
 	})
 }
