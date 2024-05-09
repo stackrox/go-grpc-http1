@@ -150,6 +150,7 @@ func handleGRPCWeb(
 	// Tell the server we would accept trailers (the gRPC server currently (v1.29.1) doesn't check for this, but it
 	// really should, as the purpose of the TE header according to the gRPC spec is to detect incompatible proxies).
 	req.Header.Set("TE", "trailers")
+	req.Header.Set("Host", req.URL.Host)
 
 	// Downgrade response to gRPC web.
 	transcodingWriter, finalize := grpcweb.NewResponseWriter(w)
