@@ -3,7 +3,7 @@ module golang.stackrox.io/grpc-http1
 go 1.19
 
 require (
-	github.com/golang/glog v1.2.1
+	github.com/golang/glog v1.2.2
 	github.com/pkg/errors v0.9.1
 	github.com/stretchr/testify v1.9.0
 	golang.org/x/net v0.27.0
