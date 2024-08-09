@@ -22,6 +22,7 @@ import (
 	"sync"
 	"unicode"
 
+	"github.com/coder/websocket"
 	"github.com/golang/glog"
 	"golang.stackrox.io/grpc-http1/internal/grpcweb"
 	"golang.stackrox.io/grpc-http1/internal/grpcwebsocket"
@@ -29,7 +30,6 @@ import (
 	"golang.stackrox.io/grpc-http1/internal/sliceutils"
 	"golang.stackrox.io/grpc-http1/internal/stringutils"
 	"google.golang.org/grpc"
-	"nhooyr.io/websocket"
 )
 
 const (

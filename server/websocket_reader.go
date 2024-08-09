@@ -19,9 +19,9 @@ import (
 	"context"
 	"io"
 
+	"github.com/coder/websocket"
 	"github.com/pkg/errors"
 	"golang.stackrox.io/grpc-http1/internal/grpcproto"
-	"nhooyr.io/websocket"
 )
 
 // readerResult stores the output from calls to (*wsReader).conn.Reader

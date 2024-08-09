@@ -27,6 +27,7 @@ import (
 	"sync"
 	"sync/atomic"
 
+	"github.com/coder/websocket"
 	"github.com/golang/glog"
 	"github.com/pkg/errors"
 	"golang.stackrox.io/grpc-http1/internal/grpcproto"
@@ -35,7 +36,6 @@ import (
 	"golang.stackrox.io/grpc-http1/internal/pipeconn"
 	"golang.stackrox.io/grpc-http1/internal/size"
 	"google.golang.org/grpc/codes"
-	"nhooyr.io/websocket"
 )
 
 const (
