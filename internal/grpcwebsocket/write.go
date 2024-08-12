@@ -19,10 +19,10 @@ import (
 	"context"
 	"io"
 
+	"github.com/coder/websocket"
 	"github.com/golang/glog"
 	"golang.stackrox.io/grpc-http1/internal/grpcproto"
 	"golang.stackrox.io/grpc-http1/internal/ioutils"
-	"nhooyr.io/websocket"
 )
 
 // Write the contents of the reader along the WebSocket connection.

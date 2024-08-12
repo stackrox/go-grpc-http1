@@ -11,6 +11,7 @@ require (
 )
 
 require (
+	github.com/coder/websocket v1.8.12 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/golang/glog v1.2.2 // indirect
 	github.com/pkg/errors v0.9.1 // indirect
@@ -20,7 +21,6 @@ require (
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20240528184218-531527333157 // indirect
 	google.golang.org/protobuf v1.34.1 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
-	nhooyr.io/websocket v1.8.11 // indirect
 )
 
 replace golang.stackrox.io/grpc-http1 => ../
