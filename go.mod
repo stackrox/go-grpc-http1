@@ -1,6 +1,7 @@
 module golang.stackrox.io/grpc-http1
 
 go 1.21.0
+
 toolchain go1.22.5
 
 require (
