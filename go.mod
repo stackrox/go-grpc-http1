@@ -7,7 +7,7 @@ require (
 	github.com/golang/glog v1.2.3
 	github.com/pkg/errors v0.9.1
 	github.com/stretchr/testify v1.10.0
-	golang.org/x/net v0.32.0
+	golang.org/x/net v0.33.0
 	google.golang.org/grpc v1.67.3
 )
 
