@@ -1,6 +1,6 @@
 module golang.stackrox.io/grpc-http1
 
-go 1.21.0
+go 1.22.5
 
 require (
 	github.com/coder/websocket v1.8.12
@@ -8,7 +8,7 @@ require (
 	github.com/pkg/errors v0.9.1
 	github.com/stretchr/testify v1.10.0
 	golang.org/x/net v0.34.0
-	google.golang.org/grpc v1.67.3
+	google.golang.org/grpc v1.70.0
 )
 
 require (
@@ -16,7 +16,7 @@ require (
 	github.com/pmezard/go-difflib v1.0.0 // indirect
 	golang.org/x/sys v0.29.0 // indirect
 	golang.org/x/text v0.21.0 // indirect
-	google.golang.org/genproto/googleapis/rpc v0.0.0-20240814211410-ddb44dafa142 // indirect
-	google.golang.org/protobuf v1.34.2 // indirect
+	google.golang.org/genproto/googleapis/rpc v0.0.0-20250127172529-29210b9bc287 // indirect
+	google.golang.org/protobuf v1.36.4 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
