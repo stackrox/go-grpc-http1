@@ -8,7 +8,7 @@ updates:
       day: 'wednesday'
     open-pull-requests-limit: 3
     reviewers:
-      - 'stackrox/maple'
+      - 'stackrox/sensor-ecosystem'
       - 'RTann'
 
   - package-ecosystem: 'gomod'
@@ -18,7 +18,7 @@ updates:
       day: 'wednesday'
     open-pull-requests-limit: 3
     reviewers:
-      - 'stackrox/maple'
+      - 'stackrox/sensor-ecosystem'
       - 'RTann'
   - package-ecosystem: 'gomod'
     directory: '/_integration-tests'
@@ -27,7 +27,7 @@ updates:
       day: 'wednesday'
     open-pull-requests-limit: 3
     reviewers:
-      - 'stackrox/maple'
+      - 'stackrox/sensor-ecosystem'
       - 'RTann'
   - package-ecosystem: 'gomod'
     directory: '/tools'
@@ -36,6 +36,6 @@ updates:
       day: 'wednesday'
     open-pull-requests-limit: 3
     reviewers:
-      - 'stackrox/maple'
+      - 'stackrox/sensor-ecosystem'
       - 'RTann'
 
