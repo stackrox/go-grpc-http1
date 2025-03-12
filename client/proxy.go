@@ -21,6 +21,7 @@ import (
 	"net"
 	"net/http"
 	"net/http/httputil"
+	"strings"
 
 	"github.com/golang/glog"
 	"github.com/pkg/errors"
@@ -30,7 +31,6 @@ import (
 	"golang.stackrox.io/grpc-http1/internal/grpcweb"
 	"golang.stackrox.io/grpc-http1/internal/httputils"
 	"golang.stackrox.io/grpc-http1/internal/pipeconn"
-	"golang.stackrox.io/grpc-http1/internal/stringutils"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/connectivity"
@@ -49,7 +49,7 @@ func modifyResponse(resp *http.Response) error {
 		// Make sure headers do not get flushed, as otherwise the gRPC client will complain about missing trailers.
 		resp.Header.Set(dontFlushHeadersHeaderKey, "true")
 	}
-	contentType, contentSubType := stringutils.Split2(resp.Header.Get("Content-Type"), "+")
+	contentType, contentSubType, _ := strings.Cut(resp.Header.Get("Content-Type"), "+")
 	if contentType != "application/grpc-web" {
 		// No modification necessary if we aren't handling a gRPC web response.
 		return nil

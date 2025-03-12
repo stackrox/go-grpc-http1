@@ -18,10 +18,8 @@ import (
 	"bytes"
 	"encoding/binary"
 	"net/http"
+	"slices"
 	"strings"
-
-	"golang.stackrox.io/grpc-http1/internal/sliceutils"
-	"golang.stackrox.io/grpc-http1/internal/stringutils"
 )
 
 type responseWriter struct {
@@ -69,12 +67,12 @@ func (w *responseWriter) prepareHeadersIfNecessary() {
 	}
 
 	hdr := w.w.Header()
-	w.announcedTrailers = sliceutils.ShallowClone(hdr["Trailer"])
+	w.announcedTrailers = slices.Clone(hdr["Trailer"])
 	// Trailers are sent in a data frame, so don't announce trailers as otherwise downstream proxies might get confused.
 	hdr.Del("Trailer")
 
 	// "Downgrade" response content type to grpc-web.
-	contentType, contentSubtype := stringutils.Split2(hdr.Get("Content-Type"), "+")
+	contentType, contentSubtype, _ := strings.Cut(hdr.Get("Content-Type"), "+")
 
 	respContentType := "application/grpc-web"
 	if contentType == "application/grpc" && contentSubtype != "" {

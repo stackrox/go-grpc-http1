@@ -18,6 +18,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"slices"
 	"strings"
 	"sync"
 	"unicode"
@@ -27,8 +28,6 @@ import (
 	"golang.stackrox.io/grpc-http1/internal/grpcweb"
 	"golang.stackrox.io/grpc-http1/internal/grpcwebsocket"
 	"golang.stackrox.io/grpc-http1/internal/size"
-	"golang.stackrox.io/grpc-http1/internal/sliceutils"
-	"golang.stackrox.io/grpc-http1/internal/stringutils"
 	"google.golang.org/grpc"
 )
 
@@ -108,11 +107,11 @@ func handleGRPCWeb(w http.ResponseWriter, req *http.Request, validPaths map[stri
 	}
 
 	acceptedContentTypes := strings.FieldsFunc(strings.Join(req.Header["Accept"], ","), spaceOrComma)
-	acceptGRPCWeb := sliceutils.Find(acceptedContentTypes, "application/grpc-web") != -1
+	acceptGRPCWeb := slices.Index(acceptedContentTypes, "application/grpc-web") != -1
 	// The standard gRPC client doesn't actually send an `Accept: application/grpc` header, so always assume
 	// the client accepts gRPC _unless_ it explicitly specifies an `application/grpc-web` accept header
 	// WITHOUT an `application/grpc` accept header.
-	acceptGRPC := !acceptGRPCWeb || sliceutils.Find(acceptedContentTypes, "application/grpc") != -1
+	acceptGRPC := !acceptGRPCWeb || slices.Index(acceptedContentTypes, "application/grpc") != -1
 
 	// Only consider sending a gRPC response if we are not told to prefer gRPC-Web or the client doesn't support
 	// gRPC-Web.
@@ -197,7 +196,7 @@ func CreateDowngradingHandler(grpcSrv *grpc.Server, httpHandler http.Handler, op
 }
 
 func isContentTypeValid(contentType string) bool {
-	ct, _ := stringutils.Split2(contentType, "+")
+	ct, _, _ := strings.Cut(contentType, "+")
 	return ct == "application/grpc" || ct == "application/grpc-web"
 }
 
