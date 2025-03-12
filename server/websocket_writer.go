@@ -18,11 +18,11 @@ import (
 	"bytes"
 	"io"
 	"net/http"
+	"slices"
 	"strings"
 
 	"github.com/golang/glog"
 	"golang.stackrox.io/grpc-http1/internal/grpcproto"
-	"golang.stackrox.io/grpc-http1/internal/sliceutils"
 )
 
 // wsResponseWriter is a http.ResponseWriter to be used for WebSocket connections.
@@ -67,7 +67,7 @@ func (w *wsResponseWriter) WriteHeader(statusCode int) {
 	}
 
 	hdr := w.header
-	w.announcedTrailers = sliceutils.ShallowClone(hdr["Trailer"])
+	w.announcedTrailers = slices.Clone(hdr["Trailer"])
 	// Trailers will be sent un-announced in non-Trailers-only responses.
 	hdr.Del("Trailer")
 
