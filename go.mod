@@ -5,7 +5,7 @@ go 1.23.0
 toolchain go1.23.7
 
 require (
-	github.com/coder/websocket v1.8.12
+	github.com/coder/websocket v1.8.13
 	github.com/golang/glog v1.2.4
 	github.com/pkg/errors v0.9.1
 	github.com/stretchr/testify v1.10.0
