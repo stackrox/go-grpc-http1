@@ -2,7 +2,7 @@ module golang.stackrox.io/grpc-http1
 
 go 1.23.0
 
-toolchain go1.24.1
+toolchain go1.23.7
 
 require (
 	github.com/coder/websocket v1.8.13
