@@ -7,9 +7,6 @@ updates:
       interval: 'weekly'
       day: 'wednesday'
     open-pull-requests-limit: 3
-    reviewers:
-      - 'stackrox/sensor-ecosystem'
-      - 'RTann'
 
   - package-ecosystem: 'gomod'
     directory: '/'
@@ -17,25 +14,16 @@ updates:
       interval: 'weekly'
       day: 'wednesday'
     open-pull-requests-limit: 3
-    reviewers:
-      - 'stackrox/sensor-ecosystem'
-      - 'RTann'
   - package-ecosystem: 'gomod'
     directory: '/_integration-tests'
     schedule:
       interval: 'weekly'
       day: 'wednesday'
     open-pull-requests-limit: 3
-    reviewers:
-      - 'stackrox/sensor-ecosystem'
-      - 'RTann'
   - package-ecosystem: 'gomod'
     directory: '/tools'
     schedule:
       interval: 'weekly'
       day: 'wednesday'
     open-pull-requests-limit: 3
-    reviewers:
-      - 'stackrox/sensor-ecosystem'
-      - 'RTann'
 
