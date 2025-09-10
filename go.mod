@@ -3,7 +3,7 @@ module golang.stackrox.io/grpc-http1
 go 1.24.0
 
 require (
-	github.com/coder/websocket v1.8.13
+	github.com/coder/websocket v1.8.14
 	github.com/golang/glog v1.2.5
 	github.com/pkg/errors v0.9.1
 	github.com/stretchr/testify v1.11.1
