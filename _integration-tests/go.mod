@@ -1,10 +1,10 @@
 module golang.stackrox.io/grpc-http1/_integration-tests
 
-go 1.24.0
+go 1.25.0
 
 require (
 	github.com/stretchr/testify v1.11.1
-	golang.org/x/net v0.50.0
+	golang.org/x/net v0.51.0
 	golang.stackrox.io/grpc-http1 v0.0.0-00010101000000-000000000000
 	google.golang.org/grpc v1.79.1
 	google.golang.org/grpc/examples v0.0.0-20250128160859-73e447014dfa
