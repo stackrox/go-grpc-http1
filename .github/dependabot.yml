@@ -5,25 +5,25 @@ updates:
     directory: '/'
     schedule:
       interval: 'weekly'
-      day: 'wednesday'
-    open-pull-requests-limit: 3
+      day: 'monday'
+    open-pull-requests-limit: 1
 
   - package-ecosystem: 'gomod'
     directory: '/'
     schedule:
       interval: 'weekly'
-      day: 'wednesday'
-    open-pull-requests-limit: 3
+      day: 'tuesday'
+    open-pull-requests-limit: 1
   - package-ecosystem: 'gomod'
     directory: '/_integration-tests'
     schedule:
       interval: 'weekly'
       day: 'wednesday'
-    open-pull-requests-limit: 3
+    open-pull-requests-limit: 1
   - package-ecosystem: 'gomod'
     directory: '/tools'
     schedule:
       interval: 'weekly'
-      day: 'wednesday'
-    open-pull-requests-limit: 3
+      day: 'friday'
+    open-pull-requests-limit: 1
 
