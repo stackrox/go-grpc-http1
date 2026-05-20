@@ -6,7 +6,7 @@ require (
 	github.com/stretchr/testify v1.11.1
 	golang.org/x/net v0.54.0
 	golang.stackrox.io/grpc-http1 v0.0.0-00010101000000-000000000000
-	google.golang.org/grpc v1.81.0
+	google.golang.org/grpc v1.81.1
 	google.golang.org/grpc/examples v0.0.0-20250128160859-73e447014dfa
 )
 
