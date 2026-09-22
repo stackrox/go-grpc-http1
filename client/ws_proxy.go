@@ -298,6 +298,9 @@ func createClientWSProxy(endpoint string, tlsClientConf *tls.Config) (*http.Serv
 		endpoint: endpoint,
 		httpClient: &http.Client{
 			Transport: &http.Transport{
+				// Honor HTTP(S)_PROXY/NO_PROXY; a hand-built transport otherwise dials
+				// the endpoint directly, bypassing the proxy (ROX-37149).
+				Proxy:           http.ProxyFromEnvironment,
 				TLSClientConfig: tlsClientConf,
 			},
 		},
