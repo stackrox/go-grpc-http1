@@ -47,7 +47,10 @@ func (c *sideChannelCreds) ClientHandshake(ctx context.Context, authority string
 		return rawConn, c.authInfo, nil
 	}
 
-	sideChannelConn, err := (&net.Dialer{}).DialContext(ctx, "tcp", c.endpoint)
+	// Dial through the configured HTTP(S)/SOCKS proxy, if any. A plain net.Dialer here
+	// would bypass the proxy and hang when direct egress to the endpoint is blocked but
+	// a proxy is available (ROX-37149).
+	sideChannelConn, err := dialProxyAwareContext(ctx, c.endpoint)
 	if err != nil {
 		return nil, nil, err
 	}
