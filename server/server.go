@@ -70,7 +70,7 @@ func handleGRPCWS(w http.ResponseWriter, req *http.Request, grpcSrv *grpc.Server
 	grpcReq.ContentLength = -1
 
 	// Set the body to a custom WebSocket reader.
-	grpcReq.Body = newWebSocketReader(ctx, conn)
+	grpcReq.Body = newWebSocketReader(ctx, conn, cancel)
 
 	// Use a custom WebSocket http.ResponseWriter to write messages back to the client.
 	grpcResponseWriter, respReader := newWebSocketResponseWriter()

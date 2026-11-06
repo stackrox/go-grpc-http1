@@ -46,6 +46,10 @@ type wsReader struct {
 	readCtxCancel context.CancelFunc
 	readerResultC chan readerResult
 
+	// onConnErr is called when the WebSocket connection fails, so the request can be cancelled
+	// even if the gRPC server is not currently reading from the request body.
+	onConnErr func()
+
 	// We use (*websocket.Conn).Reader instead of (*websocket.Conn).Read
 	// to remove the need for constant memory (de-)allocation when making
 	// a new buffer per read. Instead, we choose to manage a single buffer.
@@ -57,10 +61,11 @@ type wsReader struct {
 	err error
 }
 
-func newWebSocketReader(ctx context.Context, conn *websocket.Conn) io.ReadCloser {
+func newWebSocketReader(ctx context.Context, conn *websocket.Conn, onConnErr func()) io.ReadCloser {
 	r := &wsReader{
 		ctx:           ctx,
 		conn:          conn,
+		onConnErr:     onConnErr,
 		readerResultC: make(chan readerResult),
 		barrierC:      make(chan struct{}, 1),
 	}
@@ -81,6 +86,9 @@ func (r *wsReader) readerLoop() {
 		}
 
 		mt, reader, err := r.conn.Reader(r.ctx)
+		if err != nil {
+			r.onConnErr()
+		}
 		if err == nil && mt != websocket.MessageBinary {
 			err = errors.Errorf("incorrect message type; expected MessageBinary but got %v", mt)
 			reader = nil
