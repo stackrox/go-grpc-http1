@@ -15,6 +15,7 @@
 package server
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"net/http"
@@ -48,7 +49,8 @@ func handleGRPCWS(w http.ResponseWriter, req *http.Request, grpcSrv *grpc.Server
 	}
 	conn.SetReadLimit(64 * size.MB)
 
-	ctx := req.Context()
+	ctx, cancel := context.WithCancel(req.Context())
+	defer cancel()
 
 	grpcReq := req.Clone(ctx)
 	grpcReq.ProtoMajor, grpcReq.ProtoMinor, grpcReq.Proto = 2, 0, "HTTP/2.0"
@@ -68,7 +70,7 @@ func handleGRPCWS(w http.ResponseWriter, req *http.Request, grpcSrv *grpc.Server
 	grpcReq.ContentLength = -1
 
 	// Set the body to a custom WebSocket reader.
-	grpcReq.Body = newWebSocketReader(ctx, conn)
+	grpcReq.Body = newWebSocketReader(ctx, conn, cancel)
 
 	// Use a custom WebSocket http.ResponseWriter to write messages back to the client.
 	grpcResponseWriter, respReader := newWebSocketResponseWriter()
@@ -77,7 +79,12 @@ func handleGRPCWS(w http.ResponseWriter, req *http.Request, grpcSrv *grpc.Server
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		if err := grpcwebsocket.Write(ctx, conn, respReader, name); err != nil {
+		err := grpcwebsocket.Write(ctx, conn, respReader, name)
+		// Unblock any pending or future writes from the gRPC server into the pipe.
+		_ = respReader.Close()
+		if err != nil {
+			// The client is gone: cancel the request so the gRPC stream terminates.
+			cancel()
 			_ = conn.Close(websocket.StatusInternalError, err.Error())
 		}
 	}()
